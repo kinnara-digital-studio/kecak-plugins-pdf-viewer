@@ -1,0 +1,39 @@
+[
+  {
+    "title":"PDF Viewer",
+    "properties": [
+      {
+        "name": "id",
+        "label": "ID",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "label",
+        "label": "Label",
+        "type": "textfield",
+        "required": "false"
+      },
+      {
+        "name": "pdfUrl",
+        "label": "PDF URL",
+        "type": "textfield",
+        "required": "true"
+      },{
+        "name": "readonly",
+        "value": "true",
+        "type": "hidden"
+      },
+      {
+        "name": "width",
+        "label": "Width",
+        "type": "textfield"
+      },
+      {
+        "name": "height",
+        "label": "Height",
+        "type": "textfield"
+      }
+    ]
+  }
+]
