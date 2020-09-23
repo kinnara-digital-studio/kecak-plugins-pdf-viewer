@@ -8,7 +8,6 @@
 <div class="form-cell" ${elementMetaData!}>
     <#if includeMetaData!>
         <label class="label">${element.properties.label}</label>
-        <br>
         <img class="pnx-icon-pdf-viewer" src="${request.contextPath}/plugin/${className}/images/pdf-logo.png" />
         <span class="form-floating-label">PDF VIEWER</span>
     <#else>
