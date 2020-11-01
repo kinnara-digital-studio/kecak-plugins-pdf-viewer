@@ -3,12 +3,13 @@ package com.kinnara.kecakplugins.pdfviewer;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.userview.model.UserviewMenu;
 import org.joget.plugin.base.PluginManager;
+import org.joget.workflow.model.WorkflowAssignment;
 import org.springframework.context.ApplicationContext;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class PdfViewerMenu extends UserviewMenu {
+public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
     @Override
     public String getCategory() {
         return "Kecak";
@@ -27,6 +28,7 @@ public class PdfViewerMenu extends UserviewMenu {
         Map<String, Object> menu = new HashMap<>();
         menu.put("properties", getProperties());
         dataModel.put("menu", menu);
+        dataModel.put("src", getSrc());
         String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfViewerMenu.ftl", null);
         return htmlContent;
     }
@@ -69,5 +71,15 @@ public class PdfViewerMenu extends UserviewMenu {
     @Override
     public String getPropertyOptions() {
         return AppUtil.readPluginResource(getClassName(), "/properties/PdfViewerMenu.json", null, true, null);
+    }
+
+    @Override
+    public boolean getHtmlEmbed() {
+        return "true".equalsIgnoreCase(getPropertyString("htmlEmbed"));
+    }
+
+    @Override
+    public String getPdfUrl(WorkflowAssignment assignment) {
+        return AppUtil.processHashVariable(getPropertyString("pdfUrl"), assignment, null, null);
     }
 }

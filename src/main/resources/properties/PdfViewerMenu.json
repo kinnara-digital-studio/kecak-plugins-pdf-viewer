@@ -29,12 +29,31 @@
       {
         "name": "width",
         "label": "Width",
-        "type": "textfield"
+        "type": "textfield",
+        "value": "320"
       },
       {
         "name": "height",
         "label": "Height",
-        "type": "textfield"
+        "type": "textfield",
+        "value": "320"
+      }
+    ]
+  },
+  {
+    "title": "Advance",
+    "properties": [
+      {
+        "name": "htmlEmbed",
+        "label": "HTML Embed",
+        "type": "checkbox",
+        "value": "true",
+        "options": [
+          {
+            "value": "true",
+            "label": ""
+          }
+        ]
       }
     ]
   }

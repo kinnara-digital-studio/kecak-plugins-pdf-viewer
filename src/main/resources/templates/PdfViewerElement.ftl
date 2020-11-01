@@ -13,6 +13,6 @@
     <#else>
         <label class="label">${element.properties.label}</label>
         <br>
-        <embed src="${element.properties.pdfUrl}" width="${element.properties.width!320}" height="${element.properties.height!320}" type="application/pdf">
+        <embed src="${src}" width="${element.properties.width!320}" height="${element.properties.height!320}" type="application/pdf">
     </#if>
 </div>

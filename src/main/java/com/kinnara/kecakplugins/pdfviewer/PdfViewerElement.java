@@ -5,20 +5,30 @@ import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.model.service.WorkflowManager;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * @author aristo
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FormBuilderPaletteElement {
+public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
+        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
         String template = "PdfViewerElement.ftl";
 
         dataModel.put("className", getClassName());
+
+        WorkflowAssignment workflowAssignment = Optional.of(formData)
+                .map(FormData::getActivityId)
+                .map(workflowManager::getAssignment)
+                .orElse(null);
+        dataModel.put("src", getSrc(workflowAssignment));
 
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
@@ -72,5 +82,13 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
     @Override
     public String getPropertyOptions() {
         return AppUtil.readPluginResource(getClassName(), "/properties/PdfViewerElement.json", null, true, null).replaceAll("\"", "'");
+    }
+    public boolean getHtmlEmbed() {
+        return "true".equalsIgnoreCase(getPropertyString("htmlEmbed"));
+    }
+
+    @Override
+    public String getPdfUrl(WorkflowAssignment workflowAssignment) {
+        return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
     }
 }
