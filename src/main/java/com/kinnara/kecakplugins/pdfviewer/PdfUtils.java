@@ -108,14 +108,14 @@ public interface PdfUtils {
 
     default String getSrc(WorkflowAssignment workflowAssignment) {
         if(getHtmlEmbed()) {
-            return getPdfUrl(workflowAssignment);
-        } else {
             try {
                 return getEncodedSrc(workflowAssignment);
             } catch (IOException e) {
                 LogUtil.error(getClass().getName(), e, e.getMessage());
                 return "";
             }
+        } else {
+            return getPdfUrl(workflowAssignment);
         }
     }
 

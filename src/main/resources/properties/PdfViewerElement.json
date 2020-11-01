@@ -40,7 +40,7 @@
         "name": "htmlEmbed",
         "label": "HTML Embed",
         "type": "checkbox",
-        "value": "true",
+        "value": "false",
         "options": [
           {
             "value": "true",
