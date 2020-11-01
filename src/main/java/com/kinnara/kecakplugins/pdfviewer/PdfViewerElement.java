@@ -61,7 +61,7 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
 
     @Override
     public String getLabel() {
-        return "PDF Viewer";
+        return "PDF Element";
     }
 
     @Override

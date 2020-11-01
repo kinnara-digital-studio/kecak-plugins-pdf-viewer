@@ -15,6 +15,7 @@ public class Activator implements BundleActivator {
 
         //Register plugin here
         registrationList.add(context.registerService(PdfViewerElement.class.getName(), new PdfViewerElement(), null));
+        registrationList.add(context.registerService(PdfViewerMenu.class.getName(), new PdfViewerMenu(), null));
     }
 
     public void stop(BundleContext context) {
