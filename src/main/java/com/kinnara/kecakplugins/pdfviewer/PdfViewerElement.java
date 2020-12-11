@@ -1,6 +1,7 @@
 package com.kinnara.kecakplugins.pdfviewer;
 
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.model.AceFormElement;
 import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormData;
@@ -16,7 +17,7 @@ import java.util.Optional;
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils {
+public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils, AceFormElement {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
@@ -90,5 +91,23 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
     @Override
     public String getPdfUrl(WorkflowAssignment workflowAssignment) {
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
+    }
+
+    @Override
+    public String renderAceTemplate(FormData formData, Map dataModel) {
+        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
+        String template = "AcePdfViewerElement.ftl";
+
+        dataModel.put("className", getClassName());
+
+        WorkflowAssignment workflowAssignment = Optional.of(formData)
+                .map(FormData::getActivityId)
+                .map(workflowManager::getAssignment)
+                .orElse(null);
+        dataModel.put("src", getSrc(workflowAssignment));
+        dataModel.put("ratio",this.getPropertyString("ratio"));
+
+        String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
+        return html;
     }
 }
