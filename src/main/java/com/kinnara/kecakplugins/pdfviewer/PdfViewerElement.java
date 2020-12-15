@@ -19,16 +19,10 @@ import java.util.Optional;
 public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
-        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
         String template = "PdfViewerElement.ftl";
 
         dataModel.put("className", getClassName());
-
-        WorkflowAssignment workflowAssignment = Optional.of(formData)
-                .map(FormData::getActivityId)
-                .map(workflowManager::getAssignment)
-                .orElse(null);
-        dataModel.put("src", getSrc(workflowAssignment));
+        dataModel.put("src", getElementValue(formData));
 
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
@@ -90,5 +84,16 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
     @Override
     public String getPdfUrl(WorkflowAssignment workflowAssignment) {
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
+    }
+
+    @Override
+    public String getElementValue(FormData formData) {
+        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
+        WorkflowAssignment workflowAssignment = Optional.of(formData)
+                .map(FormData::getActivityId)
+                .map(workflowManager::getAssignment)
+                .orElse(null);
+
+        return getSrc(workflowAssignment);
     }
 }

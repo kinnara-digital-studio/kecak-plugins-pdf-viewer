@@ -14,6 +14,7 @@ import org.apache.http.ssl.SSLContextBuilder;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.util.WorkflowUtil;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.Nonnull;
@@ -109,7 +110,7 @@ public interface PdfUtils {
     default String getSrc(WorkflowAssignment workflowAssignment) {
         if(getHtmlEmbed()) {
             try {
-                return getEncodedSrc(workflowAssignment);
+                return AppUtil.processHashVariable(getEncodedSrc(workflowAssignment), workflowAssignment, null, null);
             } catch (IOException e) {
                 LogUtil.error(getClass().getName(), e, e.getMessage());
                 return "";
