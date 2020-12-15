@@ -37,6 +37,23 @@
         "value": "320"
       },
       {
+        "name": "ratio",
+        "label": "Ratio",
+        "type": "radio",
+        "value": "4by3",
+        "required": "true",
+        "options": [
+          {
+            "value": "16by9",
+            "label": "16:9"
+          },
+          {
+            "value": "4by3",
+            "label": "4:3"
+          }
+        ]
+      },
+      {
         "name": "htmlEmbed",
         "label": "HTML Embed",
         "type": "checkbox",
