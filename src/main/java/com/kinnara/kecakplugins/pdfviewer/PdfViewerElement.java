@@ -6,6 +6,7 @@ import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
 
@@ -27,6 +28,11 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
 
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
+    }
+
+    @Override
+    public Object handleElementValueResponse(Element element, FormData formData) {
+        return element.getElementValue(formData);
     }
 
     @Override
