@@ -24,11 +24,13 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
     public String getRenderPage() {
         ApplicationContext appContext = AppUtil.getApplicationContext();
         PluginManager pluginManager = (PluginManager) appContext.getBean("pluginManager");
+
         Map<String, Object> dataModel = new HashMap<>();
         Map<String, Object> menu = new HashMap<>();
         menu.put("properties", getProperties());
         dataModel.put("menu", menu);
-        dataModel.put("src", getSrc());
+
+        dataModel.put("src", getSrc( null));
         String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfViewerMenu.ftl", null);
         return htmlContent;
     }
@@ -74,8 +76,8 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
     }
 
     @Override
-    public boolean getHtmlEmbed() {
-        return "true".equalsIgnoreCase(getPropertyString("htmlEmbed"));
+    public boolean getHtmlEmbed(WorkflowAssignment assignment) {
+        return "true".equalsIgnoreCase(AppUtil.processHashVariable(getPropertyString("htmlEmbed"), assignment, null, null));
     }
 
     @Override

@@ -1,12 +1,10 @@
 package com.kinnara.kecakplugins.pdfviewer;
 
 import org.joget.apps.app.service.AppUtil;
-import org.joget.apps.form.model.AceFormElement;
 import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
-import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
 
@@ -18,7 +16,7 @@ import java.util.Optional;
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils, AceFormElement {
+public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfViewerElement.ftl";
@@ -32,7 +30,7 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
 
     @Override
     public Object handleElementValueResponse(Element element, FormData formData) {
-        return element.getElementValue(formData);
+        return getElementValue(formData);
     }
 
     @Override
@@ -84,23 +82,13 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
     public String getPropertyOptions() {
         return AppUtil.readPluginResource(getClassName(), "/properties/PdfViewerElement.json", null, true, null).replaceAll("\"", "'");
     }
-    public boolean getHtmlEmbed() {
-        return "true".equalsIgnoreCase(getPropertyString("htmlEmbed"));
+    public boolean getHtmlEmbed(WorkflowAssignment assignment) {
+        return "true".equalsIgnoreCase(AppUtil.processHashVariable(getPropertyString("htmlEmbed"), assignment, null, null));
     }
 
     @Override
     public String getPdfUrl(WorkflowAssignment workflowAssignment) {
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
-    }
-
-    @Override
-    public String getElementValue(FormData formData) {
-        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
-        WorkflowAssignment workflowAssignment = Optional.of(formData)
-                .map(FormData::getActivityId)
-                .map(workflowManager::getAssignment)
-                .orElse(null);
-        return getSrc(workflowAssignment);
     }
 
     @Override
@@ -113,5 +101,14 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
 
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
+    }
+
+    protected String getElementValue(FormData formData) {
+        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
+        WorkflowAssignment workflowAssignment = Optional.of(formData)
+                .map(FormData::getActivityId)
+                .map(workflowManager::getAssignment)
+                .orElse(null);
+        return getSrc(workflowAssignment);
     }
 }

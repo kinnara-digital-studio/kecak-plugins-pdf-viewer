@@ -12,6 +12,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.model.Element;
 import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.util.WorkflowUtil;
@@ -30,7 +31,7 @@ import java.util.Base64;
 import java.util.Optional;
 
 public interface PdfUtils {
-    boolean getHtmlEmbed();
+    boolean getHtmlEmbed(WorkflowAssignment assignment);
 
     String getPdfUrl(WorkflowAssignment assignment);
 
@@ -103,12 +104,8 @@ public interface PdfUtils {
         }
     }
 
-    default String getSrc() {
-        return getSrc(null);
-    }
-
     default String getSrc(WorkflowAssignment workflowAssignment) {
-        if(getHtmlEmbed()) {
+        if(getHtmlEmbed(workflowAssignment)) {
             try {
                 return AppUtil.processHashVariable(getEncodedSrc(workflowAssignment), workflowAssignment, null, null);
             } catch (IOException e) {
