@@ -63,7 +63,6 @@ public interface PdfUtils {
                     .build();
         } catch (NoSuchAlgorithmException | KeyStoreException | KeyManagementException e) {
             LogUtil.error(getClass().getName(), e, e.getMessage());
-        } finally {
             return HttpClientBuilder.create().build();
         }
     }
