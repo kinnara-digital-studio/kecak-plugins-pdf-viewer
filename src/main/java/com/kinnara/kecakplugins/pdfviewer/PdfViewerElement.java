@@ -7,6 +7,7 @@ import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
+import org.kecak.apps.form.model.AceFormElement;
 
 import java.util.Map;
 import java.util.Optional;
@@ -16,7 +17,7 @@ import java.util.Optional;
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils {
+public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils, AceFormElement {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfViewerElement.ftl";
