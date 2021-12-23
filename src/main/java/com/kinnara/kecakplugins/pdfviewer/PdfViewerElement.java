@@ -24,6 +24,8 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
         dataModel.put("className", getClassName());
         dataModel.put("src", getElementValue(formData));
 
+        FormUtil.setReadOnlyProperty(this);
+
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
     }
