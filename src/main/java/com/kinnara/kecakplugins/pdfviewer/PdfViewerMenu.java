@@ -29,9 +29,12 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
         Map<String, Object> menu = new HashMap<>();
         menu.put("properties", getProperties());
         dataModel.put("menu", menu);
-
+        dataModel.put("label",this.getPropertyString("label"));
+        dataModel.put("ratio",this.getPropertyString("ratio"));
         dataModel.put("src", getSrc( null));
-        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfViewerMenu.ftl", null);
+        dataModel.put("className",this.getClassName());
+
+        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/AcePdfViewerMenu.ftl", null);
         return htmlContent;
     }
 
