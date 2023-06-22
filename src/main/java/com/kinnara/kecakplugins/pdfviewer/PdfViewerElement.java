@@ -1,12 +1,16 @@
 package com.kinnara.kecakplugins.pdfviewer;
 
 import org.joget.apps.app.service.AppUtil;
-import org.joget.apps.form.model.Element;
-import org.joget.apps.form.model.FormBuilderPaletteElement;
-import org.joget.apps.form.model.FormData;
+import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.apps.userview.model.UserviewPermission;
+import org.joget.directory.model.User;
+import org.joget.directory.model.service.ExtDirectoryManager;
+import org.joget.plugin.base.PluginManager;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
+import org.joget.workflow.model.service.WorkflowUserManager;
+import org.joget.workflow.util.WorkflowUtil;
 import org.kecak.apps.form.model.AceFormElement;
 
 import java.util.Map;
@@ -17,7 +21,7 @@ import java.util.Optional;
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FormBuilderPaletteElement, PdfUtils, AceFormElement {
+public class PdfViewerElement extends Element implements FileDownloadSecurity, FormBuilderPaletteElement, PdfUtils, AceFormElement {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfViewerElement.ftl";
@@ -58,7 +62,7 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
 
     @Override
     public String getName() {
-        return getLabel() + getVersion();
+        return getLabel();
     }
 
     @Override
@@ -113,5 +117,39 @@ public class PdfViewerElement extends Element implements FormBuilderPaletteEleme
                 .map(workflowManager::getAssignment)
                 .orElse(null);
         return getSrc(workflowAssignment);
+    }
+
+    @Override
+    public boolean isDownloadAllowed(Map requestParameters) {
+        final boolean isAnonymous = WorkflowUtil.isCurrentUserAnonymous();
+
+        Object permissionElement = getProperty("permissionPlugin");
+        if(permissionElement == null) {
+            return !isAnonymous;
+        }
+
+        @SuppressWarnings("rawtypes")
+        Map elementMap = (Map) permissionElement;
+        String className = (String) elementMap.get("className");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) elementMap.get("properties");
+
+        //convert it to plugin
+        PluginManager pm = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+        UserviewPermission plugin = (UserviewPermission) pm.getPlugin(className);
+        if (!(plugin instanceof FormPermission)) {
+            return !isAnonymous;
+        }
+
+        WorkflowUserManager workflowUserManager = (WorkflowUserManager) AppUtil.getApplicationContext().getBean("workflowUserManager");
+        ExtDirectoryManager dm = (ExtDirectoryManager) AppUtil.getApplicationContext().getBean("directoryManager");
+        String username = workflowUserManager.getCurrentUsername();
+        User user = dm.getUserByUsername(username);
+
+        plugin.setProperties(properties);
+        plugin.setCurrentUser(user);
+        plugin.setRequestParameters(requestParameters);
+
+        return plugin.isAuthorize();
     }
 }

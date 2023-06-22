@@ -64,6 +64,13 @@
             "label": ""
           }
         ]
+      },
+      {
+        "name": "permissionPlugin",
+        "label" :"@@form.fileupload.customPermission@@",
+        "type" :"elementselect",
+        "options_ajax" :"[CONTEXT_PATH]/web/property/json/getElements?classname=org.joget.apps.form.model.FormPermission",
+        "url" :"[CONTEXT_PATH]/web/property/json/getPropertyOptions"
       }
     ]
   }
