@@ -1,6 +1,5 @@
 package com.kinnara.kecakplugins.pdfviewer;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,13 +10,18 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.joget.apps.app.service.AppUtil;
+import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
 import org.joget.plugin.base.PluginWebSupport;
 
-// import fr.opensagres.poi.xwpf.converter.pdf.PdfConverter;
-// import fr.opensagres.poi.xwpf.converter.pdf.PdfOptions;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.pdf.PdfWriter;
+
+import java.io.ByteArrayOutputStream;
+
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 public class PdfViewerWebService extends DefaultApplicationPlugin implements PluginWebSupport{
     final static String LABEL = "PDF Web Service";
@@ -58,17 +62,54 @@ public class PdfViewerWebService extends DefaultApplicationPlugin implements Plu
 
         URL url = new URL(urlString);
 
-        try (InputStream inputStream = url.openStream()) {
+        if (urlString.endsWith(".docx")) {
+            try (InputStream inputStream = url.openStream()) {
+                XWPFDocument docx = new XWPFDocument(inputStream);
 
-            servletResponse.setContentType("application/pdf");
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                Document pdfDocument = new Document();
+                PdfWriter.getInstance(pdfDocument, byteArrayOutputStream);
 
-            OutputStream outputStream = servletResponse.getOutputStream();
+                // Buka dokumen PDF
+                pdfDocument.open();
 
-            byte[] buffer = new byte[4096];
-            int bytesRead;
+                // Konversi isi DOCX ke PDF
+                docx.getParagraphs().forEach(p -> {
+                    try {
+                        Paragraph para = new Paragraph(p.getText());
+                        para.setAlignment(Element.ALIGN_LEFT);
+                        pdfDocument.add(para);
+                    } catch (Exception e) {
+                        LogUtil.error(getClassName(), e, "Error converting DOCX to PDF");
+                    }
+                });
 
-            while ((bytesRead = inputStream.read(buffer)) >= 0) {
-                outputStream.write(buffer, 0, bytesRead);
+                // Tutup dokumen PDF
+                pdfDocument.close();
+
+                // Kirim PDF ke output stream servlet response
+                servletResponse.setContentType("application/pdf");
+                servletResponse.setContentLength(byteArrayOutputStream.size());
+                byteArrayOutputStream.writeTo(servletResponse.getOutputStream());
+            } catch (Exception e) {
+                LogUtil.error(getClassName(), e, "Error processing DOCX file");
+                servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing DOCX file");
+            }
+        } else if (urlString.endsWith("xlsx")) {
+
+        } else {
+            try (InputStream inputStream = url.openStream()) {
+
+                servletResponse.setContentType("application/pdf");
+    
+                OutputStream outputStream = servletResponse.getOutputStream();
+    
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+    
+                while ((bytesRead = inputStream.read(buffer)) >= 0) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
             }
         }
     }
