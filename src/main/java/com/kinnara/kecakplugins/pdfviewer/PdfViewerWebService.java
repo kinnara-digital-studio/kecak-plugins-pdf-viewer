@@ -85,7 +85,6 @@ public class PdfViewerWebService extends DefaultApplicationPlugin implements Plu
                 
                 LogUtil.info(getClassName(), "Word Package: " + wordMLPackage.getContentType());
                 // Output stream untuk menyimpan hasil PDF
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
                 MainDocumentPart documentPart = wordMLPackage.getMainDocumentPart();
                 
                 servletResponse.setContentType("application/pdf");
@@ -96,74 +95,7 @@ public class PdfViewerWebService extends DefaultApplicationPlugin implements Plu
                 servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing DOCX file");
             }
         } else if (urlString.endsWith("xlsx")) {
-            try (InputStream inputStream = url.openStream()) {
-                Workbook workbook = new XSSFWorkbook(inputStream);
-        
-                LogUtil.info(getClassName(), "Workbook Title: " + workbook.getSheetName(0));
-
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                Document pdfDocument = new Document();
-                PdfWriter.getInstance(pdfDocument, byteArrayOutputStream);
-        
-                // Buka dokumen PDF
-                pdfDocument.open();
-        
-                // Iterasi melalui setiap sheet dalam workbook
-                for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-                    Sheet sheet = workbook.getSheetAt(i);
-                    pdfDocument.add(new Paragraph("Sheet: " + sheet.getSheetName()));
-        
-                    // Hitung jumlah kolom dari baris pertama untuk membuat tabel PDF
-                    Row firstRow = sheet.getRow(0);
-                    int numColumns = firstRow.getPhysicalNumberOfCells();
-                    PdfPTable table = new PdfPTable(numColumns); // Buat tabel PDF dengan kolom sebanyak jumlah sel
-        
-                    // Iterasi melalui setiap baris dalam sheet
-                    for (Row row : sheet) {
-                        for (Cell cell : row) {
-                            // Buat cell untuk PDF
-                            PdfPCell pdfCell = new PdfPCell();
-                            pdfCell.setPadding(5); // Menambahkan padding untuk tampilan yang lebih baik
-                            pdfCell.setBorderWidth(1); // Set border width untuk garis tabel
-        
-                            // Isi cell berdasarkan tipe datanya
-                            switch (cell.getCellType()) {
-                                case STRING:
-                                    pdfCell.setPhrase(new Phrase(cell.getStringCellValue()));
-                                    break;
-                                case NUMERIC:
-                                    pdfCell.setPhrase(new Phrase(String.valueOf(cell.getNumericCellValue())));
-                                    break;
-                                case BOOLEAN:
-                                    pdfCell.setPhrase(new Phrase(String.valueOf(cell.getBooleanCellValue())));
-                                    break;
-                                case FORMULA:
-                                    pdfCell.setPhrase(new Phrase(cell.getCellFormula()));
-                                    break;
-                                default:
-                                    pdfCell.setPhrase(new Phrase(""));
-                            }
-                            // Menambahkan cell ke tabel PDF
-                            table.addCell(pdfCell);
-                        }
-                    }
-        
-                    // Menambahkan tabel ke dokumen PDF
-                    pdfDocument.add(table);
-                }
-        
-                // Tutup dokumen PDF
-                pdfDocument.close();
-                workbook.close();
-        
-                // Kirim PDF ke output stream servlet response
-                servletResponse.setContentType("application/pdf");
-                servletResponse.setContentLength(byteArrayOutputStream.size());
-                byteArrayOutputStream.writeTo(servletResponse.getOutputStream());
-            } catch (Exception e) {
-                LogUtil.error(getClassName(), e, "Error processing XLSX file");
-                servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing XLSX file");
-            }
+            
         } else {
             try (InputStream inputStream = url.openStream()) {
 
