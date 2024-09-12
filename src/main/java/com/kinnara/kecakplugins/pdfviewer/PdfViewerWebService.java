@@ -17,11 +17,27 @@ import org.joget.plugin.base.PluginWebSupport;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
-import java.io.ByteArrayOutputStream;
+// import fr.opensagres.poi.xwpf.converter.pdf.PdfConverter;
+// import fr.opensagres.poi.xwpf.converter.pdf.PdfOptions;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+
+import org.docx4j.Docx4J;
+import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
+import org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart;
 
 public class PdfViewerWebService extends DefaultApplicationPlugin implements PluginWebSupport{
     final static String LABEL = "PDF Web Service";
@@ -64,39 +80,90 @@ public class PdfViewerWebService extends DefaultApplicationPlugin implements Plu
 
         if (urlString.endsWith(".docx")) {
             try (InputStream inputStream = url.openStream()) {
-                XWPFDocument docx = new XWPFDocument(inputStream);
+                // Memuat dokumen DOCX
+                WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(inputStream);
+                
+                LogUtil.info(getClassName(), "Word Package: " + wordMLPackage.getContentType());
+                // Output stream untuk menyimpan hasil PDF
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                MainDocumentPart documentPart = wordMLPackage.getMainDocumentPart();
+                
+                servletResponse.setContentType("application/pdf");
+                // Melakukan konversi DOCX ke PDF
+                Docx4J.toPDF(wordMLPackage, servletResponse.getOutputStream());
+            } catch (Exception e) {
+                LogUtil.error(getClassName(), e, "Error processing DOCX file: " + e.getMessage());
+                servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing DOCX file");
+            }
+        } else if (urlString.endsWith("xlsx")) {
+            try (InputStream inputStream = url.openStream()) {
+                Workbook workbook = new XSSFWorkbook(inputStream);
+        
+                LogUtil.info(getClassName(), "Workbook Title: " + workbook.getSheetName(0));
 
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
                 Document pdfDocument = new Document();
                 PdfWriter.getInstance(pdfDocument, byteArrayOutputStream);
-
+        
                 // Buka dokumen PDF
                 pdfDocument.open();
-
-                // Konversi isi DOCX ke PDF
-                docx.getParagraphs().forEach(p -> {
-                    try {
-                        Paragraph para = new Paragraph(p.getText());
-                        para.setAlignment(Element.ALIGN_LEFT);
-                        pdfDocument.add(para);
-                    } catch (Exception e) {
-                        LogUtil.error(getClassName(), e, "Error converting DOCX to PDF");
+        
+                // Iterasi melalui setiap sheet dalam workbook
+                for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                    Sheet sheet = workbook.getSheetAt(i);
+                    pdfDocument.add(new Paragraph("Sheet: " + sheet.getSheetName()));
+        
+                    // Hitung jumlah kolom dari baris pertama untuk membuat tabel PDF
+                    Row firstRow = sheet.getRow(0);
+                    int numColumns = firstRow.getPhysicalNumberOfCells();
+                    PdfPTable table = new PdfPTable(numColumns); // Buat tabel PDF dengan kolom sebanyak jumlah sel
+        
+                    // Iterasi melalui setiap baris dalam sheet
+                    for (Row row : sheet) {
+                        for (Cell cell : row) {
+                            // Buat cell untuk PDF
+                            PdfPCell pdfCell = new PdfPCell();
+                            pdfCell.setPadding(5); // Menambahkan padding untuk tampilan yang lebih baik
+                            pdfCell.setBorderWidth(1); // Set border width untuk garis tabel
+        
+                            // Isi cell berdasarkan tipe datanya
+                            switch (cell.getCellType()) {
+                                case STRING:
+                                    pdfCell.setPhrase(new Phrase(cell.getStringCellValue()));
+                                    break;
+                                case NUMERIC:
+                                    pdfCell.setPhrase(new Phrase(String.valueOf(cell.getNumericCellValue())));
+                                    break;
+                                case BOOLEAN:
+                                    pdfCell.setPhrase(new Phrase(String.valueOf(cell.getBooleanCellValue())));
+                                    break;
+                                case FORMULA:
+                                    pdfCell.setPhrase(new Phrase(cell.getCellFormula()));
+                                    break;
+                                default:
+                                    pdfCell.setPhrase(new Phrase(""));
+                            }
+                            // Menambahkan cell ke tabel PDF
+                            table.addCell(pdfCell);
+                        }
                     }
-                });
-
+        
+                    // Menambahkan tabel ke dokumen PDF
+                    pdfDocument.add(table);
+                }
+        
                 // Tutup dokumen PDF
                 pdfDocument.close();
-
+                workbook.close();
+        
                 // Kirim PDF ke output stream servlet response
                 servletResponse.setContentType("application/pdf");
                 servletResponse.setContentLength(byteArrayOutputStream.size());
                 byteArrayOutputStream.writeTo(servletResponse.getOutputStream());
             } catch (Exception e) {
-                LogUtil.error(getClassName(), e, "Error processing DOCX file");
-                servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing DOCX file");
+                LogUtil.error(getClassName(), e, "Error processing XLSX file");
+                servletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing XLSX file");
             }
-        } else if (urlString.endsWith("xlsx")) {
-
         } else {
             try (InputStream inputStream = url.openStream()) {
 
