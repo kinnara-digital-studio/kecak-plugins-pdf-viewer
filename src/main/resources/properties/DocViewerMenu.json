@@ -1,0 +1,71 @@
+[
+    {
+      "title":"Document Viewer",
+      "properties": [
+        {
+          "name": "id",
+          "label": "Id",
+          "type": "hidden"
+        },
+        {
+          "name": "customId",
+          "label": "Custom ID",
+          "type": "textfield",
+          "regex_validation": "^[a-zA-Z0-9_]+$",
+          "validation_message": "Invalid ID"
+        },
+        {
+          "name": "label",
+          "label": "Label",
+          "type": "textfield",
+          "required": "false"
+        },
+        {
+          "name": "ratio",
+          "label": "Ratio",
+          "type": "radio",
+          "value": "4by3",
+          "required": "true",
+          "options": [
+            {
+              "value": "16by9",
+              "label": "16:9"
+            },
+            {
+              "value": "4by3",
+              "label": "4:3"
+            }
+          ]
+        },
+        {
+          "name": "width",
+          "label": "Width",
+          "type": "textfield",
+          "value": "320"
+        },
+        {
+          "name": "height",
+          "label": "Height",
+          "type": "textfield",
+          "value": "320"
+        }
+      ]
+    },
+    {
+      "title": "Advance",
+      "properties": [
+        {
+          "name": "htmlEmbed",
+          "label": "HTML Embed",
+          "type": "checkbox",
+          "value": "false",
+          "options": [
+            {
+              "value": "true",
+              "label": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
