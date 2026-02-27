@@ -19,8 +19,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.6.1</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>8</source>
+                    <target>8</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -184,27 +184,32 @@
         <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-core</artifactId>
-            <version>11.4.9</version>
+            <version>8.0.0</version>
         </dependency>
-        <!-- <dependency>
+        <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-JAXB-Internal</artifactId>
-            <version>11.4.9</version>
-        </dependency> -->
+            <version>8.0.0</version>
+        </dependency>
         <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
-            <version>11.4.9</version>
+            <version>8.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-JAXB-MOXy</artifactId>
-            <version>11.4.9</version>
+            <version>8.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-export-fo</artifactId>
-            <version>11.4.9</version>
+            <version>8.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.woodstox</groupId>
+            <artifactId>woodstox-core</artifactId>
+            <version>6.6.0</version>
         </dependency>
         <!-- End change plugin specific dependencies here -->
     </dependencies>
