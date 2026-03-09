@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.ResourceBundle;
 
 public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
+    public final static String LABEL = "PDF Menu";
+
     @Override
     public String getCategory() {
         return "Kecak";
@@ -52,7 +54,7 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
 
     @Override
     public String getName() {
-        return getLabel() + getVersion();
+        return LABEL;
     }
 
     @Override
@@ -70,7 +72,7 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
 
     @Override
     public String getLabel() {
-        return "PDF Menu";
+        return LABEL;
     }
 
     @Override
