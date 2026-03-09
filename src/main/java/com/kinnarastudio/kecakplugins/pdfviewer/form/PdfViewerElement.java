@@ -71,7 +71,8 @@ public class PdfViewerElement extends Element implements FileDownloadSecurity, F
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
         ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
         String buildNumber = resourceBundle.getString("buildNumber");
-        return buildNumber;    }
+        return buildNumber;
+    }
 
     @Override
     public String getDescription() {
