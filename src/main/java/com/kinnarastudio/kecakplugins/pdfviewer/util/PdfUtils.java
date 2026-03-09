@@ -1,4 +1,4 @@
-package com.kinnara.kecakplugins.pdfviewer;
+package com.kinnarastudio.kecakplugins.pdfviewer.util;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -12,10 +12,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.joget.apps.app.service.AppUtil;
-import org.joget.apps.form.model.Element;
 import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
-import org.joget.workflow.util.WorkflowUtil;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.Nonnull;

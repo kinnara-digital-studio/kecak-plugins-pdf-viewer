@@ -1,5 +1,6 @@
-package com.kinnara.kecakplugins.pdfviewer;
+package com.kinnarastudio.kecakplugins.pdfviewer.form;
 
+import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormUtil;
@@ -11,7 +12,6 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.joget.workflow.model.service.WorkflowUserManager;
 import org.joget.workflow.util.WorkflowUtil;
-import org.kecak.apps.form.model.AceFormElement;
 
 import java.util.Map;
 import java.util.Optional;
@@ -22,7 +22,7 @@ import java.util.ResourceBundle;
  *
  * Pdf Viewer Element
  */
-public class PdfViewerElement extends Element implements FileDownloadSecurity, FormBuilderPaletteElement, PdfUtils, AceFormElement {
+public class PdfViewerElement extends Element implements FileDownloadSecurity, FormBuilderPaletteElement, PdfUtils {
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfViewerElement.ftl";
@@ -101,17 +101,7 @@ public class PdfViewerElement extends Element implements FileDownloadSecurity, F
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
     }
 
-    @Override
-    public String renderAceTemplate(FormData formData, Map dataModel) {
-        String template = "AcePdfViewerElement.ftl";
 
-        dataModel.put("className", getClassName());
-        dataModel.put("src", getElementValue(formData));
-        dataModel.put("ratio",this.getPropertyString("ratio"));
-
-        String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
-        return html;
-    }
 
     protected String getElementValue(FormData formData) {
         WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");

@@ -1,7 +1,11 @@
-package com.kinnara.kecakplugins.pdfviewer;
+package com.kinnarastudio.kecakplugins.pdfviewer;
 
 import java.util.ArrayList;
 import java.util.Collection;
+
+import com.kinnarastudio.kecakplugins.pdfviewer.app.PdfViewerWebService;
+import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfViewerElement;
+import com.kinnarastudio.kecakplugins.pdfviewer.userview.PdfViewerMenu;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;

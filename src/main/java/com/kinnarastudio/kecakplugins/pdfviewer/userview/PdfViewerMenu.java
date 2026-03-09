@@ -1,5 +1,6 @@
-package com.kinnara.kecakplugins.pdfviewer;
+package com.kinnarastudio.kecakplugins.pdfviewer.userview;
 
+import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.userview.model.UserviewMenu;
 import org.joget.plugin.base.PluginManager;
@@ -34,7 +35,7 @@ public class PdfViewerMenu extends UserviewMenu implements PdfUtils {
         dataModel.put("src", getSrc( null));
         dataModel.put("className",this.getClassName());
 
-        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/AcePdfViewerMenu.ftl", null);
+        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfViewerMenu.ftl", null);
         return htmlContent;
     }
 
