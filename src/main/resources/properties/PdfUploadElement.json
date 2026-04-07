@@ -1,0 +1,77 @@
+[
+  {
+    "title":"PDF Upload Resize",
+    "properties": [
+      {
+        "name": "id",
+        "label": "ID",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "label",
+        "label": "Label",
+        "type": "textfield",
+        "required": "false"
+      },
+      {
+        "name": "pdfUrl",
+        "label": "PDF URL",
+        "type": "textfield",
+        "required": "true"
+      },{
+        "name": "readonly",
+        "value": "true",
+        "type": "hidden"
+      },
+      {
+        "name": "width",
+        "label": "Width",
+        "type": "textfield",
+        "value": "320"
+      },
+      {
+        "name": "height",
+        "label": "Height",
+        "type": "textfield",
+        "value": "320"
+      },
+      {
+        "name": "ratio",
+        "label": "Ratio",
+        "type": "radio",
+        "value": "4by3",
+        "required": "true",
+        "options": [
+          {
+            "value": "16by9",
+            "label": "16:9"
+          },
+          {
+            "value": "4by3",
+            "label": "4:3"
+          }
+        ]
+      },
+      {
+        "name": "htmlEmbed",
+        "label": "HTML Embed",
+        "type": "checkbox",
+        "value": "false",
+        "options": [
+          {
+            "value": "true",
+            "label": ""
+          }
+        ]
+      },
+      {
+        "name": "permissionPlugin",
+        "label" :"@@form.fileupload.customPermission@@",
+        "type" :"elementselect",
+        "options_ajax" :"[CONTEXT_PATH]/web/property/json/getElements?classname=org.joget.apps.form.model.FormPermission",
+        "url" :"[CONTEXT_PATH]/web/property/json/getPropertyOptions"
+      }
+    ]
+  }
+]

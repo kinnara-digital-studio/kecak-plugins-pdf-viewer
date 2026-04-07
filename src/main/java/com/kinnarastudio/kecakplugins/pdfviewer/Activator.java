@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import com.kinnarastudio.kecakplugins.pdfviewer.app.PdfViewerWebService;
+import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfUploadElement;
 import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfViewerElement;
 import com.kinnarastudio.kecakplugins.pdfviewer.userview.PdfViewerMenu;
 import org.osgi.framework.BundleActivator;
@@ -19,6 +20,7 @@ public class Activator implements BundleActivator {
 
         //Register plugin here
         registrationList.add(context.registerService(PdfViewerElement.class.getName(), new PdfViewerElement(), null));
+        registrationList.add(context.registerService(PdfUploadElement.class.getName(), new PdfUploadElement(), null));
         registrationList.add(context.registerService(PdfViewerMenu.class.getName(), new PdfViewerMenu(), null));
         registrationList.add(context.registerService(PdfViewerWebService.class.getName(), new PdfViewerWebService(), null));
     }
