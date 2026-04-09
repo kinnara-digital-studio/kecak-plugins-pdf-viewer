@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 
 public class PdfUploadMenu extends UserviewMenu implements PdfUtils {
-    public final static String LABEL = "PDF Menu";
+    public final static String LABEL = "PDF Resize Menu";
 
     @Override
     public String getCategory() {

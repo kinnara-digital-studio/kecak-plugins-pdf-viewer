@@ -78,7 +78,7 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
 
     @Override
     public String getLabel() {
-        return "PDF Upload Element";
+        return "PDF Upload Resize";
     }
 
     @Override
