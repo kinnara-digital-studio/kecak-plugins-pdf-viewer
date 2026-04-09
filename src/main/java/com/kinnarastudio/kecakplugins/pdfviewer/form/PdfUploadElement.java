@@ -4,14 +4,19 @@ import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
+import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FileUtil;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.apps.userview.model.Permission;
 import org.joget.apps.userview.model.PwaOfflineResources;
 import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.*;
@@ -52,6 +57,35 @@ import java.util.stream.Collectors;
  * Pdf Upload Element
  */
 public class PdfUploadElement extends Element implements FileDownloadSecurity, FormBuilderPaletteElement, PdfUtils, PluginWebSupport, PwaOfflineResources {
+
+    @Override
+    public String getName() {
+        return getLabel();
+    }
+
+    @Override
+    public String getVersion() {
+        PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
+        String buildNumber = resourceBundle.getString("buildNumber");
+        return buildNumber;
+    }
+
+    @Override
+    public String getDescription() {
+        return getClass().getPackage().getImplementationTitle();
+    }
+
+    @Override
+    public String getLabel() {
+        return "PDF Upload Element";
+    }
+
+    @Override
+    public String getClassName() {
+        return getClass().getName();
+    }
+
     @Override
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfUploadElement.ftl";
@@ -125,7 +159,6 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         if (!filePaths.isEmpty()) {
             dataModel.put("filePaths", filePaths);
         }
-
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
     }
@@ -150,33 +183,7 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         return "<img src='${request.contextPath}/plugin/${className}/images/pdf-logo.png' width='320' height='320' />";
     }
 
-    @Override
-    public String getName() {
-        return getLabel();
-    }
 
-    @Override
-    public String getVersion() {
-        PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
-        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
-        String buildNumber = resourceBundle.getString("buildNumber");
-        return buildNumber;
-    }
-
-    @Override
-    public String getDescription() {
-        return getClass().getPackage().getImplementationTitle();
-    }
-
-    @Override
-    public String getLabel() {
-        return "PDF Upload Element";
-    }
-
-    @Override
-    public String getClassName() {
-        return getClass().getName();
-    }
 
     @Override
     public String getPropertyOptions() {
@@ -200,40 +207,6 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
                 .map(workflowManager::getAssignment)
                 .orElse(null);
         return getSrc(workflowAssignment);
-    }
-
-    @Override
-    public boolean isDownloadAllowed(Map requestParameters) {
-        final boolean isAnonymous = WorkflowUtil.isCurrentUserAnonymous();
-
-        Object permissionElement = getProperty("permissionPlugin");
-        if(permissionElement == null) {
-            return !isAnonymous;
-        }
-
-        @SuppressWarnings("rawtypes")
-        Map elementMap = (Map) permissionElement;
-        String className = (String) elementMap.get("className");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> properties = (Map<String, Object>) elementMap.get("properties");
-
-        //convert it to plugin
-        PluginManager pm = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
-        UserviewPermission plugin = (UserviewPermission) pm.getPlugin(className);
-        if (!(plugin instanceof FormPermission)) {
-            return !isAnonymous;
-        }
-
-        WorkflowUserManager workflowUserManager = (WorkflowUserManager) AppUtil.getApplicationContext().getBean("workflowUserManager");
-        ExtDirectoryManager dm = (ExtDirectoryManager) AppUtil.getApplicationContext().getBean("directoryManager");
-        String username = workflowUserManager.getCurrentUsername();
-        User user = dm.getUserByUsername(username);
-
-        plugin.setProperties(properties);
-        plugin.setCurrentUser(user);
-        plugin.setRequestParameters(requestParameters);
-
-        return plugin.isAuthorize();
     }
 
     @Override
@@ -292,11 +265,15 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
                 for (String value : values) {
                     // check if the file is in temp file
                     File file = FileManager.getFileByPath(value);
-                    if (file != null) {
+                    String compressionLevel = getPropertyString("compressionLevel");
+                    boolean enableWatermark = "true".equals(getPropertyString("enableWatermark"));
+                    String watermarkText = getPropertyString("watermarkText");
+
+                    if (file.getName().toLowerCase().endsWith(".pdf") && !"none".equals(compressionLevel)) {
                         // --- PDF PROCESSING START ---
                         if (file.getName().toLowerCase().endsWith(".pdf") && file.length() > 5242880) {    try {
                             LogUtil.info(getClassName(), "Compressing large PDF: " + file.getName() + " (" + (file.length() / 1024 / 1024) + "MB)");
-                            compressPdfImages(file);
+                            compressPdf(file, compressionLevel, enableWatermark, watermarkText);
                             LogUtil.info(getClassName(), "Compression complete. New size: " + (file.length() / 1024 / 1024) + "MB");
                             } catch (Exception e) {
                                 LogUtil.error(getClassName(), e, "Failed to process PDF: " + file.getName());
@@ -341,18 +318,117 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
     }
 
     /**
-     * Helper method to handle PDF logic
+     * Compresses images within a PDF to reduce total file size.
+     * Targets images > 500px and reduces them by 50% with 60% JPEG quality.
      */
-    private void processPdfResize(File file) throws Exception {
-        // Note: PDFBox doesn't "resize" like an image.
-        // This example loads and re-saves, which can strip unnecessary metadata.
-        // For true compression, you would need to iterate through resources and downsample images.
-        PDDocument document = PDDocument.load(file);
-        try {
-            // Example: logic to set version or metadata could go here
+    private void compressPdf(File file, String level) throws IOException {
+        float scale;
+        float quality;
+
+        // Define settings based on user selection
+        switch (level) {
+            case "low":
+                scale = 0.8f;   // 80% of original size
+                quality = 0.8f; // 80% JPEG quality
+                break;
+            case "high":
+                scale = 0.4f;   // 40% of original size
+                quality = 0.4f; // 40% JPEG quality
+                break;
+            case "medium":
+            default:
+                scale = 0.6f;   // 60% of original size
+                quality = 0.6f; // 60% JPEG quality
+                break;
+        }
+
+        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+            for (PDPage page : document.getPages()) {
+                PDResources resources = page.getResources();
+                if (resources == null) continue;
+
+                for (COSName name : resources.getXObjectNames()) {
+                    if (resources.isImageXObject(name)) {
+                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+                        BufferedImage rawImage = image.getImage();
+                        if (rawImage == null) continue;
+
+                        // Apply the scale factor
+                        int newWidth = Math.round(rawImage.getWidth() * scale);
+                        int newHeight = Math.round(rawImage.getHeight() * scale);
+
+                        // Skip if the image is already smaller than the target
+                        if (newWidth < 100) continue;
+
+                        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+                        Graphics2D g = resizedImage.createGraphics();
+                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                        g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
+                        g.dispose();
+
+                        // Apply the JPEG quality factor
+                        PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, quality);
+                        resources.put(name, compressedXObject);
+                    }
+                }
+            }
             document.save(file);
-        } finally {
-            document.close();
+        }
+    }
+
+    private void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
+        float scale = 0.6f;
+        float quality = 0.6f;
+
+        // Map settings
+        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
+        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+
+        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+            for (PDPage page : document.getPages()) {
+                PDResources resources = page.getResources();
+
+                // 1. Image Compression
+                if (!"none".equals(level) && resources != null) {
+                    for (COSName name : resources.getXObjectNames()) {
+                        if (resources.isImageXObject(name)) {
+                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+                            BufferedImage rawImage = image.getImage();
+                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+                                int nW = Math.round(rawImage.getWidth() * scale);
+                                int nH = Math.round(rawImage.getHeight() * scale);
+
+                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
+                                Graphics2D g = resized.createGraphics();
+                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                                g.drawImage(rawImage, 0, 0, nW, nH, null);
+                                g.dispose();
+
+                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
+                            }
+                        }
+                    }
+                }
+
+                // 2. Watermarking
+                if (watermark && text != null && !text.isEmpty()) {
+                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
+                        cs.setGraphicsStateParameters(gs);
+                        cs.beginText();
+                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
+                        cs.setNonStrokingColor(Color.GRAY);
+
+                        float w = page.getMediaBox().getWidth();
+                        float h = page.getMediaBox().getHeight();
+                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+                        cs.showText(text);
+                        cs.endText();
+                    }
+                }
+            }
+            document.save(file);
         }
     }
 
@@ -632,5 +708,37 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
                     return filePath;
                 })
                 .collect(Collectors.joining(";"));
+    }
+
+    @Override
+    public boolean isDownloadAllowed(Map requestParameters) {
+        String permissionType = getPropertyString("permissionType");
+        if (permissionType.equals("public")) {
+            return true;
+        } else if (permissionType.equals("custom")) {
+            Object permissionElement = getProperty("permissionPlugin");
+            if (permissionElement != null && permissionElement instanceof Map) {
+                Map elementMap = (Map) permissionElement;
+                String className = (String) elementMap.get("className");
+                Map<String, Object> properties = (Map<String, Object>) elementMap.get("properties");
+
+                //convert it to plugin
+                PluginManager pm = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+                Permission plugin = (Permission) pm.getPlugin(className);
+                if (plugin != null && plugin instanceof FormPermission) {
+                    WorkflowUserManager workflowUserManager = (WorkflowUserManager) AppUtil.getApplicationContext().getBean("workflowUserManager");
+                    User user = workflowUserManager.getCurrentUser();
+
+                    plugin.setProperties(properties);
+                    plugin.setCurrentUser(user);
+                    plugin.setRequestParameters(requestParameters);
+
+                    return plugin.isAuthorize();
+                }
+            }
+            return false;
+        } else {
+            return !WorkflowUtil.isCurrentUserAnonymous();
+        }
     }
 }

@@ -15,63 +15,50 @@
         "required": "false"
       },
       {
-        "name": "pdfUrl",
-        "label": "PDF URL",
-        "type": "textfield",
-        "required": "true"
-      },{
-        "name": "readonly",
-        "value": "true",
-        "type": "hidden"
+        name : 'maxSize',
+        label : '@@form.fileupload.maxSize@@',
+        type : 'textfield',
+        regex_validation : '^[0-9]+$',
+        validation_message : '@@form.fileupload.invalidSize@@'
       },
       {
-        "name": "width",
-        "label": "Width",
-        "type": "textfield",
-        "value": "320"
+        name : 'maxSizeMsg',
+        label : '@@form.fileupload.maxSize.msg@@',
+        type : 'textfield',
+        value : '@@form.fileupload.maxSize.msg.fileTooBig@@'
       },
       {
-        "name": "height",
-        "label": "Height",
-        "type": "textfield",
-        "value": "320"
+        name : 'fileType',
+        label : 'pdf',
+        type : 'hidden'
       },
       {
-        "name": "ratio",
-        "label": "Ratio",
-        "type": "radio",
-        "value": "4by3",
-        "required": "true",
+        "name": "compressionLevel",
+        "label": "Compression Level",
+        "type": "selectbox",
         "options": [
-          {
-            "value": "16by9",
-            "label": "16:9"
-          },
-          {
-            "value": "4by3",
-            "label": "4:3"
-          }
-        ]
-      },
-      {
-        "name": "htmlEmbed",
-        "label": "HTML Embed",
-        "type": "checkbox",
-        "value": "false",
-        "options": [
-          {
-            "value": "true",
-            "label": ""
-          }
-        ]
-      },
-      {
-        "name": "permissionPlugin",
-        "label" :"@@form.fileupload.customPermission@@",
-        "type" :"elementselect",
-        "options_ajax" :"[CONTEXT_PATH]/web/property/json/getElements?classname=org.joget.apps.form.model.FormPermission",
-        "url" :"[CONTEXT_PATH]/web/property/json/getPropertyOptions"
+          {"value": "none", "label": "None (Original Quality)"},
+          {"value": "low", "label": "Low (Better Quality, Larger File)"},
+          {"value": "medium", "label": "Medium (Balanced)"},
+          {"value": "high", "label": "High (Smallest Size, Lower Quality)"}
+        ],
+        "value": "none"
       }
     ]
+  },
+  {
+    "name": "enableWatermark",
+    "label": "Enable Watermark",
+    "type": "checkbox",
+    "options": [{"value": "true", "label": ""}]
+  },
+  {
+    "name": "watermarkText",
+    "label": "Watermark Text",
+    "type": "textfield",
+    "value": "Kinnara Digital Studio",
+    "control_field": "enableWatermark",
+    "control_value": "true",
+    "control_use_conjunction": "or"
   }
 ]
