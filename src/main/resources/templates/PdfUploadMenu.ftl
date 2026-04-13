@@ -1,5 +1,5 @@
 <style type="text/css">
-.pnx-icon-pdf-viewer {
+.pnx-icon-pdf-resize {
     width: 24px !important;
     height: 24px !important;
 }

@@ -38,7 +38,7 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils {
         dataModel.put("src", getSrc( null));
         dataModel.put("className",this.getClassName());
 
-        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfViewerMenu.ftl", null);
+        String htmlContent = pluginManager.getPluginFreeMarkerTemplate(dataModel, getClassName(), "/templates/PdfUploadMenu.ftl", null);
         return htmlContent;
     }
 
@@ -82,7 +82,7 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils {
 
     @Override
     public String getPropertyOptions() {
-        return AppUtil.readPluginResource(getClassName(), "/properties/PdfViewerMenu.json", null, true, null);
+        return AppUtil.readPluginResource(getClassName(), "/properties/PdfUploadMenu.json", null, true, null);
     }
 
     @Override

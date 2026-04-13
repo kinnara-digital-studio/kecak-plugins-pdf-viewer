@@ -11,6 +11,17 @@ import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.io.MemoryUsageSetting;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
+import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.workflow.model.WorkflowAssignment;
@@ -18,10 +29,9 @@ import org.springframework.web.client.RestClientException;
 
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -128,6 +138,62 @@ public interface PdfUtils {
             byte[] bytes = readInputStream(inputStream);
             String base64Encoded = Base64.getEncoder().encodeToString(bytes);
             return "data:application/pdf;base64, " + base64Encoded;
+        }
+    }
+
+    default void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
+        float scale = 0.6f;
+        float quality = 0.6f;
+
+        // Map settings
+        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
+        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+
+        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+            for (PDPage page : document.getPages()) {
+                PDResources resources = page.getResources();
+
+                // 1. Image Compression
+                if (!"none".equals(level) && resources != null) {
+                    for (COSName name : resources.getXObjectNames()) {
+                        if (resources.isImageXObject(name)) {
+                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+                            BufferedImage rawImage = image.getImage();
+                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+                                int nW = Math.round(rawImage.getWidth() * scale);
+                                int nH = Math.round(rawImage.getHeight() * scale);
+
+                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
+                                Graphics2D g = resized.createGraphics();
+                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                                g.drawImage(rawImage, 0, 0, nW, nH, null);
+                                g.dispose();
+
+                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
+                            }
+                        }
+                    }
+                }
+
+                // 2. Watermarking
+                if (watermark && text != null && !text.isEmpty()) {
+                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
+                        cs.setGraphicsStateParameters(gs);
+                        cs.beginText();
+                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
+                        cs.setNonStrokingColor(Color.GRAY);
+
+                        float w = page.getMediaBox().getWidth();
+                        float h = page.getMediaBox().getHeight();
+                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+                        cs.showText(text);
+                        cs.endText();
+                    }
+                }
+            }
+            document.save(file);
         }
     }
 }

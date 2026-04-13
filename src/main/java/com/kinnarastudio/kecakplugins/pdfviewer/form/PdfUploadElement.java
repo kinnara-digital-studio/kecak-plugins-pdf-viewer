@@ -271,14 +271,13 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
 
                     if (file.getName().toLowerCase().endsWith(".pdf") && !"none".equals(compressionLevel)) {
                         // --- PDF PROCESSING START ---
-                        if (file.getName().toLowerCase().endsWith(".pdf") && file.length() > 5242880) {    try {
+                         try {
                             LogUtil.info(getClassName(), "Compressing large PDF: " + file.getName() + " (" + (file.length() / 1024 / 1024) + "MB)");
                             compressPdf(file, compressionLevel, enableWatermark, watermarkText);
                             LogUtil.info(getClassName(), "Compression complete. New size: " + (file.length() / 1024 / 1024) + "MB");
                             } catch (Exception e) {
                                 LogUtil.error(getClassName(), e, "Failed to process PDF: " + file.getName());
                             }
-                        }
                         // --- PDF PROCESSING END ---
 
                         filePaths.add(value);
@@ -321,173 +320,173 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
      * Compresses images within a PDF to reduce total file size.
      * Targets images > 500px and reduces them by 50% with 60% JPEG quality.
      */
-    private void compressPdf(File file, String level) throws IOException {
-        float scale;
-        float quality;
+//    private void compressPdf(File file, String level) throws IOException {
+//        float scale;
+//        float quality;
+//
+//        // Define settings based on user selection
+//        switch (level) {
+//            case "low":
+//                scale = 0.8f;   // 80% of original size
+//                quality = 0.8f; // 80% JPEG quality
+//                break;
+//            case "high":
+//                scale = 0.4f;   // 40% of original size
+//                quality = 0.4f; // 40% JPEG quality
+//                break;
+//            case "medium":
+//            default:
+//                scale = 0.6f;   // 60% of original size
+//                quality = 0.6f; // 60% JPEG quality
+//                break;
+//        }
+//
+//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+//            for (PDPage page : document.getPages()) {
+//                PDResources resources = page.getResources();
+//                if (resources == null) continue;
+//
+//                for (COSName name : resources.getXObjectNames()) {
+//                    if (resources.isImageXObject(name)) {
+//                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+//                        BufferedImage rawImage = image.getImage();
+//                        if (rawImage == null) continue;
+//
+//                        // Apply the scale factor
+//                        int newWidth = Math.round(rawImage.getWidth() * scale);
+//                        int newHeight = Math.round(rawImage.getHeight() * scale);
+//
+//                        // Skip if the image is already smaller than the target
+//                        if (newWidth < 100) continue;
+//
+//                        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+//                        Graphics2D g = resizedImage.createGraphics();
+//                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+//                        g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
+//                        g.dispose();
+//
+//                        // Apply the JPEG quality factor
+//                        PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, quality);
+//                        resources.put(name, compressedXObject);
+//                    }
+//                }
+//            }
+//            document.save(file);
+//        }
+//    }
 
-        // Define settings based on user selection
-        switch (level) {
-            case "low":
-                scale = 0.8f;   // 80% of original size
-                quality = 0.8f; // 80% JPEG quality
-                break;
-            case "high":
-                scale = 0.4f;   // 40% of original size
-                quality = 0.4f; // 40% JPEG quality
-                break;
-            case "medium":
-            default:
-                scale = 0.6f;   // 60% of original size
-                quality = 0.6f; // 60% JPEG quality
-                break;
-        }
+//    private void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
+//        float scale = 0.6f;
+//        float quality = 0.6f;
+//
+//        // Map settings
+//        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
+//        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+//
+//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+//            for (PDPage page : document.getPages()) {
+//                PDResources resources = page.getResources();
+//
+//                // 1. Image Compression
+//                if (!"none".equals(level) && resources != null) {
+//                    for (COSName name : resources.getXObjectNames()) {
+//                        if (resources.isImageXObject(name)) {
+//                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+//                            BufferedImage rawImage = image.getImage();
+//                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+//                                int nW = Math.round(rawImage.getWidth() * scale);
+//                                int nH = Math.round(rawImage.getHeight() * scale);
+//
+//                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
+//                                Graphics2D g = resized.createGraphics();
+//                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+//                                g.drawImage(rawImage, 0, 0, nW, nH, null);
+//                                g.dispose();
+//
+//                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                // 2. Watermarking
+//                if (watermark && text != null && !text.isEmpty()) {
+//                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+//                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+//                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
+//                        cs.setGraphicsStateParameters(gs);
+//                        cs.beginText();
+//                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
+//                        cs.setNonStrokingColor(Color.GRAY);
+//
+//                        float w = page.getMediaBox().getWidth();
+//                        float h = page.getMediaBox().getHeight();
+//                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+//                        cs.showText(text);
+//                        cs.endText();
+//                    }
+//                }
+//            }
+//            document.save(file);
+//        }
+//    }
 
-        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-            for (PDPage page : document.getPages()) {
-                PDResources resources = page.getResources();
-                if (resources == null) continue;
+//    private void compressPdfImages(File file) throws IOException {
+//        // Use temp file for buffering to save JVM Heap Space
+//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+//            for (PDPage page : document.getPages()) {
+//                PDResources resources = page.getResources();
+//                if (resources == null) continue;
+//
+//                for (COSName name : resources.getXObjectNames()) {
+//                    if (resources.isImageXObject(name)) {
+//                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+//
+//                        BufferedImage rawImage = image.getImage();
+//                        if (rawImage == null) continue;
+//
+//                        // Only downsample if the image is reasonably large (e.g., > 500px)
+//                        if (rawImage.getWidth() > 500 || rawImage.getHeight() > 500) {
+//                            double scale = 0.5;
+//                            int newWidth = (int) (rawImage.getWidth() * scale);
+//                            int newHeight = (int) (rawImage.getHeight() * scale);
+//
+//                            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+//                            Graphics2D g = resizedImage.createGraphics();
+//
+//                            // Quality settings for the resize
+//                            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+//                            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+//
+//                            g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
+//                            g.dispose();
+//
+//                            // 0.6f quality offers a great balance between size and legibility
+//                            PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, 0.6f);
+//                            resources.put(name, compressedXObject);
+//                        }
+//                    }
+//                }
+//            }
+//            // Overwrite the temp file with compressed version
+//            document.save(file);
+//        }
+//    }
 
-                for (COSName name : resources.getXObjectNames()) {
-                    if (resources.isImageXObject(name)) {
-                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-                        BufferedImage rawImage = image.getImage();
-                        if (rawImage == null) continue;
-
-                        // Apply the scale factor
-                        int newWidth = Math.round(rawImage.getWidth() * scale);
-                        int newHeight = Math.round(rawImage.getHeight() * scale);
-
-                        // Skip if the image is already smaller than the target
-                        if (newWidth < 100) continue;
-
-                        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
-                        Graphics2D g = resizedImage.createGraphics();
-                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                        g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
-                        g.dispose();
-
-                        // Apply the JPEG quality factor
-                        PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, quality);
-                        resources.put(name, compressedXObject);
-                    }
-                }
-            }
-            document.save(file);
-        }
-    }
-
-    private void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
-        float scale = 0.6f;
-        float quality = 0.6f;
-
-        // Map settings
-        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
-        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
-
-        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-            for (PDPage page : document.getPages()) {
-                PDResources resources = page.getResources();
-
-                // 1. Image Compression
-                if (!"none".equals(level) && resources != null) {
-                    for (COSName name : resources.getXObjectNames()) {
-                        if (resources.isImageXObject(name)) {
-                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-                            BufferedImage rawImage = image.getImage();
-                            if (rawImage != null && (rawImage.getWidth() > 500)) {
-                                int nW = Math.round(rawImage.getWidth() * scale);
-                                int nH = Math.round(rawImage.getHeight() * scale);
-
-                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
-                                Graphics2D g = resized.createGraphics();
-                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                                g.drawImage(rawImage, 0, 0, nW, nH, null);
-                                g.dispose();
-
-                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
-                            }
-                        }
-                    }
-                }
-
-                // 2. Watermarking
-                if (watermark && text != null && !text.isEmpty()) {
-                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
-                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
-                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
-                        cs.setGraphicsStateParameters(gs);
-                        cs.beginText();
-                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
-                        cs.setNonStrokingColor(Color.GRAY);
-
-                        float w = page.getMediaBox().getWidth();
-                        float h = page.getMediaBox().getHeight();
-                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
-                        cs.showText(text);
-                        cs.endText();
-                    }
-                }
-            }
-            document.save(file);
-        }
-    }
-
-    private void compressPdfImages(File file) throws IOException {
-        // Use temp file for buffering to save JVM Heap Space
-        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-            for (PDPage page : document.getPages()) {
-                PDResources resources = page.getResources();
-                if (resources == null) continue;
-
-                for (COSName name : resources.getXObjectNames()) {
-                    if (resources.isImageXObject(name)) {
-                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-
-                        BufferedImage rawImage = image.getImage();
-                        if (rawImage == null) continue;
-
-                        // Only downsample if the image is reasonably large (e.g., > 500px)
-                        if (rawImage.getWidth() > 500 || rawImage.getHeight() > 500) {
-                            double scale = 0.5;
-                            int newWidth = (int) (rawImage.getWidth() * scale);
-                            int newHeight = (int) (rawImage.getHeight() * scale);
-
-                            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
-                            Graphics2D g = resizedImage.createGraphics();
-
-                            // Quality settings for the resize
-                            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-
-                            g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
-                            g.dispose();
-
-                            // 0.6f quality offers a great balance between size and legibility
-                            PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, 0.6f);
-                            resources.put(name, compressedXObject);
-                        }
-                    }
-                }
-            }
-            // Overwrite the temp file with compressed version
-            document.save(file);
-        }
-    }
-
-    public String getServiceUrl() {
-        String url = WorkflowUtil.getHttpServletRequest().getContextPath()+ "/web/json/plugin/org.joget.apps.form.lib.FileUpload/service";
-        AppDefinition appDef = AppUtil.getCurrentAppDefinition();
-
-        //create nonce
-        String paramName = FormUtil.getElementParameterName(this);
-        String fileType = getPropertyString("fileType");
-        String nonce = SecurityUtil.generateNonce(new String[]{"FileUpload", appDef.getAppId(), appDef.getVersion().toString(), paramName, fileType}, 1);
-
-        try {
-            url = url + "?_nonce="+URLEncoder.encode(nonce, "UTF-8")+"&_paramName="+URLEncoder.encode(paramName, "UTF-8")+"&_appId="+URLEncoder.encode(appDef.getAppId(), "UTF-8")+"&_appVersion="+URLEncoder.encode(appDef.getVersion().toString(), "UTF-8")+"&_ft="+URLEncoder.encode(fileType, "UTF-8");
-        } catch (Exception e) {}
-        return url;
-    }
+//    public String getServiceUrl() {
+//        String url = WorkflowUtil.getHttpServletRequest().getContextPath()+ "/web/json/plugin/org.joget.apps.form.lib.FileUpload/service";
+//        AppDefinition appDef = AppUtil.getCurrentAppDefinition();
+//
+//        //create nonce
+//        String paramName = FormUtil.getElementParameterName(this);
+//        String fileType = getPropertyString("fileType");
+//        String nonce = SecurityUtil.generateNonce(new String[]{"FileUpload", appDef.getAppId(), appDef.getVersion().toString(), paramName, fileType}, 1);
+//
+//        try {
+//            url = url + "?_nonce="+URLEncoder.encode(nonce, "UTF-8")+"&_paramName="+URLEncoder.encode(paramName, "UTF-8")+"&_appId="+URLEncoder.encode(appDef.getAppId(), "UTF-8")+"&_appVersion="+URLEncoder.encode(appDef.getVersion().toString(), "UTF-8")+"&_ft="+URLEncoder.encode(fileType, "UTF-8");
+//        } catch (Exception e) {}
+//        return url;
+//    }
 
     public void webService(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String nonce = request.getParameter("_nonce");
