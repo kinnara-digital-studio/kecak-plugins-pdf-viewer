@@ -24,6 +24,7 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.commons.util.LogUtil;
+import org.apache.commons.io.IOUtils;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.springframework.web.client.RestClientException;
 
@@ -141,13 +142,16 @@ public interface PdfUtils {
         }
     }
 
+    // Import check: Make sure you have java.awt.image.BufferedImage and java.awt.Graphics2D
     default void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
         float scale = 0.6f;
         float quality = 0.6f;
 
-        // Map settings
         if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
         else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+
+        // We use a temporary buffer to avoid overwriting the file while it's open
+        byte[] pdfBytes;
 
         try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
             for (PDPage page : document.getPages()) {
@@ -159,14 +163,17 @@ public interface PdfUtils {
                         if (resources.isImageXObject(name)) {
                             PDImageXObject image = (PDImageXObject) resources.getXObject(name);
                             BufferedImage rawImage = image.getImage();
+
                             if (rawImage != null && (rawImage.getWidth() > 500)) {
                                 int nW = Math.round(rawImage.getWidth() * scale);
                                 int nH = Math.round(rawImage.getHeight() * scale);
 
-                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
+                                // FIX 1: Use TYPE_INT_RGB. JPEGs do not support ARGB (Transparency).
+                                // Using ARGB here often results in inverted colors or black boxes in previews.
+                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_RGB);
                                 Graphics2D g = resized.createGraphics();
                                 g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                                g.drawImage(rawImage, 0, 0, nW, nH, null);
+                                g.drawImage(rawImage, 0, 0, nW, nH, Color.WHITE, null); // Add white background for transparency
                                 g.dispose();
 
                                 resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
@@ -177,9 +184,10 @@ public interface PdfUtils {
 
                 // 2. Watermarking
                 if (watermark && text != null && !text.isEmpty()) {
+                    // APPEND mode ensures we don't overwrite existing page content
                     try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
                         PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
-                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
+                        gs.setNonStrokingAlphaConstant(0.3f);
                         cs.setGraphicsStateParameters(gs);
                         cs.beginText();
                         cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
@@ -193,7 +201,158 @@ public interface PdfUtils {
                     }
                 }
             }
-            document.save(file);
+
+            // FIX 2: Save to a ByteArray first to release the file handle
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            document.save(baos);
+            pdfBytes = baos.toByteArray();
+        } // Document is CLOSED here
+
+        // FIX 3: Now that the document is closed, safely overwrite the file with the compressed bytes
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(pdfBytes);
         }
     }
+
+    /**
+     * Compresses PDF and returns bytes. No file is created/saved on the server.
+     */
+    default byte[] compressPdfToBytes(InputStream inputStream, String level, boolean watermark, String text) throws IOException {
+        // DIAGNOSTIC 1: Read raw bytes first to ensure we actually have data
+        byte[] inputBytes = IOUtils.toByteArray(inputStream);
+        System.out.println("PdfUtil: Input received. Size: " + inputBytes.length + " bytes");
+
+        if (inputBytes.length == 0) {
+            throw new IOException("Input stream was empty before PDF processing.");
+        }
+
+        float scale = 0.6f;
+        float quality = 0.6f;
+
+        // Map settings
+        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
+        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+
+        try (PDDocument document = PDDocument.load(inputStream, MemoryUsageSetting.setupTempFileOnly());
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            System.out.println("PdfUtil: Document loaded. Page count: " + document.getNumberOfPages());
+
+            for (PDPage page : document.getPages()) {
+                PDResources resources = page.getResources();
+
+                // 1. Image Compression Logic
+                if (!"none".equals(level) && resources != null) {
+                    for (COSName name : resources.getXObjectNames()) {
+                        if (resources.isImageXObject(name)) {
+                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+                            BufferedImage rawImage = image.getImage();
+
+                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+                                int nW = Math.round(rawImage.getWidth() * scale);
+                                int nH = Math.round(rawImage.getHeight() * scale);
+
+                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_RGB);
+                                Graphics2D g = resized.createGraphics();
+                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                                g.drawImage(rawImage, 0, 0, nW, nH, Color.WHITE, null);
+                                g.dispose();
+
+                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
+                            }
+                        }
+                    }
+                }
+
+                // 2. Watermarking Logic
+                if (watermark && text != null && !text.isEmpty()) {
+                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+                        gs.setNonStrokingAlphaConstant(0.3f);
+                        cs.setGraphicsStateParameters(gs);
+                        cs.beginText();
+                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
+                        cs.setNonStrokingColor(Color.GRAY);
+
+                        float w = page.getMediaBox().getWidth();
+                        float h = page.getMediaBox().getHeight();
+                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+                        cs.showText(text);
+                        cs.endText();
+                    }
+                }
+            }
+
+            document.save(baos);
+            byte[] result = baos.toByteArray();
+            System.out.println("PdfUtil: Compression complete. Output size: " + result.length + " bytes");
+            return result;
+        }
+    }
+
+    /**
+     * Separate function to save bytes to a physical file if needed.
+     */
+    default void saveBytesToFile(byte[] data, File file) throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(data);
+            fos.flush();
+        }
+    }
+
+//    default void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
+//        float scale = 0.6f;
+//        float quality = 0.6f;
+//
+//        // Map settings
+//        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
+//        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
+//
+//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+//            for (PDPage page : document.getPages()) {
+//                PDResources resources = page.getResources();
+//
+//                // 1. Image Compression
+//                if (!"none".equals(level) && resources != null) {
+//                    for (COSName name : resources.getXObjectNames()) {
+//                        if (resources.isImageXObject(name)) {
+//                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
+//                            BufferedImage rawImage = image.getImage();
+//                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+//                                int nW = Math.round(rawImage.getWidth() * scale);
+//                                int nH = Math.round(rawImage.getHeight() * scale);
+//
+//                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
+//                                Graphics2D g = resized.createGraphics();
+//                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+//                                g.drawImage(rawImage, 0, 0, nW, nH, null);
+//                                g.dispose();
+//
+//                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                // 2. Watermarking
+//                if (watermark && text != null && !text.isEmpty()) {
+//                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+//                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+//                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
+//                        cs.setGraphicsStateParameters(gs);
+//                        cs.beginText();
+//                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
+//                        cs.setNonStrokingColor(Color.GRAY);
+//
+//                        float w = page.getMediaBox().getWidth();
+//                        float h = page.getMediaBox().getHeight();
+//                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+//                        cs.showText(text);
+//                        cs.endText();
+//                    }
+//                }
+//            }
+//            document.save(file);
+//        }
+//    }
 }

@@ -89,27 +89,62 @@
     function uploadAndPreview(file) {
         overlay.style.display = 'flex';
         loader.style.display = 'block';
-        viewer.style.display = 'none';
 
-        // AJAX to call your Java Backend
         const formData = new FormData();
         formData.append('pdfFile', file);
 
-        // Replace 'YOUR_JAVA_ENDPOINT_URL' with your actual Plugin Action URL
-        fetch('${request.contextPath}/web/json/plugin/com.kinnarastudio.kecakplugins.pdfviewer.userview.PdfUploadMenu/service', {
+        // Get CSRF Token from Joget's global variable
+        const csrfToken = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenValue : '';
+        const csrfName = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenName : '';
+
+        fetch('${request.contextPath}/web/json/plugin/${className}/service', {
             method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                // Include the security token
+                [csrfName]: csrfToken
+            },
             body: formData
         })
-        .then(response => response.blob())
-        .then(compressedBlob => {
-            const url = URL.createObjectURL(compressedBlob);
-            loader.style.display = 'none';
-            viewer.style.display = 'block';
-            viewer.src = url;
+        .then(response => {
+            // LOG 1: Check if the request was successful
+                console.log("Response Status:", response.status);
+                console.log("Content-Type:", response.headers.get("content-type"));
+
+                if (!response.ok) throw new Error('Server Error ' + response.status);
+                return response.blob();
+        })
+        .then(blob => {
+            // LOG 2: Check the size of the PDF received
+                console.log("Received Blob Size:", blob.size, "bytes");
+
+                if (blob.size === 0) {
+                        alert("Server sent an empty file!");
+                        return;
+                    }
+
+                    // If the size is small (like < 1000 bytes), it might be a text error instead of a PDF
+                    if (blob.size < 1000) {
+                        blob.text().then(text => console.warn("Small blob content (Possible Error):", text));
+                    }
+
+                    const url = URL.createObjectURL(blob);
+                        const viewer = document.getElementById('full-viewer');
+
+                        // Clear the src first to force a refresh
+                        viewer.src = "about:blank";
+
+                        setTimeout(() => {
+                            viewer.src = url;
+                            document.getElementById('full-page-preview').style.display = 'flex';
+                            document.getElementById('pdf-loader').style.display = 'none';
+                        }, 100);
+
         })
         .catch(err => {
-            alert("Error processing PDF");
             overlay.style.display = 'none';
+            console.error("AJAX Error:", err);
+            document.getElementById('pdf-loader').style.display = 'none';
         });
     }
 
