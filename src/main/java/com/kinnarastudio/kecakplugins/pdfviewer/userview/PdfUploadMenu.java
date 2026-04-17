@@ -103,6 +103,45 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSu
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), assignment, null, null);
     }
 
+//    @Override
+//    public void webService(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+//        // ... resolve multipartRequest as before ...
+//
+//        if (multipartRequest != null) {
+//            MultipartFile mFile = multipartRequest.getFile("pdfFile");
+//            if (mFile != null && !mFile.isEmpty()) {
+//                try {
+//                    // 1. Process to bytes
+//                    byte[] compressedResult = compressPdfToBytes(mFile.getInputStream(), "medium", true, "PREVIEW");
+//
+//                    // 2. ABSOLUTELY IMPORTANT: Clear anything previously written by Joget/Spring
+//                    response.reset();
+//                    response.resetBuffer();
+//
+//                    // 3. Set standard PDF headers
+//                    response.setContentType("application/pdf");
+//                    response.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
+//                    response.setContentLength(compressedResult.length);
+//
+//                    // 4. Write and Force Flush
+//                    try (OutputStream os = response.getOutputStream()) {
+//                        os.write(compressedResult);
+//                        os.flush();
+//                    }
+//
+//                    // 5. Tell the servlet container we are done
+//                    return;
+//
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                    // Send a plain text error if it fails
+//                    response.setContentType("text/plain");
+//                    response.getWriter().write("Error: " + e.getMessage());
+//                }
+//            }
+//        }
+//    }
+
     @Override
     public void webService(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -124,7 +163,39 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSu
             }
 
             if (multipartRequest != null) {
-                handlePdfProcessing(multipartRequest, response);
+
+//                handlePdfProcessing(multipartRequest, response);
+                MultipartFile mFile = multipartRequest.getFile("pdfFile");
+                if (mFile != null && !mFile.isEmpty()) {
+                    try {
+                        // 1. Process to bytes
+                        byte[] compressedResult = compressPdfToBytes(mFile.getInputStream(), "medium", true, "PREVIEW");
+
+                        // 2. ABSOLUTELY IMPORTANT: Clear anything previously written by Joget/Spring
+                        response.reset();
+                        response.resetBuffer();
+
+                        // 3. Set standard PDF headers
+                        response.setContentType("application/pdf");
+                        response.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
+                        response.setContentLength(compressedResult.length);
+
+                        // 4. Write and Force Flush
+                        try (OutputStream os = response.getOutputStream()) {
+                            os.write(compressedResult);
+                            os.flush();
+                        }
+
+                        // 5. Tell the servlet container we are done
+                        return;
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        // Send a plain text error if it fails
+                        response.setContentType("text/plain");
+                        response.getWriter().write("Error: " + e.getMessage());
+                    }
+                }
             } else {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid Multipart Request");
             }
