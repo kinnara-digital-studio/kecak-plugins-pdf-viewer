@@ -98,7 +98,12 @@
         })
         .then(response => {
             console.log("Response Status:", response.status);
-            if (!response.ok) throw new Error('Server Error ' + response.status);
+            if (!response.ok){
+                return response.text().then(errorText => {
+                        // Throw the specific message from the server
+                        throw new Error(errorText || "Unknown Server Error " + response.status);
+                    });
+            }
             return response.blob();
         })
         .then(blob => {

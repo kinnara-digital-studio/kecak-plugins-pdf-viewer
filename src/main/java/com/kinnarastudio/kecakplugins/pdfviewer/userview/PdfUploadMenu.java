@@ -3,14 +3,17 @@ package com.kinnarastudio.kecakplugins.pdfviewer.userview;
 import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.userview.model.UserviewMenu;
+import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.PluginManager;
 import org.joget.plugin.base.PluginWebSupport;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.multipart.MultipartResolver;
 
 import javax.servlet.ServletException;
+import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
@@ -19,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+@MultipartConfig
 public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSupport {
     public final static String LABEL = "PDF Resize Menu";
 
@@ -147,58 +151,53 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSu
             throws ServletException, IOException {
 
         MultipartHttpServletRequest multipartRequest = null;
+        MultipartFile mFile = null;
 
         try {
-            if (request instanceof MultipartHttpServletRequest  ) {
-                multipartRequest = (MultipartHttpServletRequest) request;
-            } else {
-                // Get the existing resolver from Spring Application Context
-                ApplicationContext ac = AppUtil.getApplicationContext();
-                org.springframework.web.multipart.MultipartResolver resolver =
-                        (org.springframework.web.multipart.MultipartResolver) ac.getBean("multipartResolver");
+            // STRATEGY 1: Check if Spring already wrapped it
+        if (request instanceof MultipartHttpServletRequest) {
+            multipartRequest = (MultipartHttpServletRequest) request;
+            mFile = multipartRequest.getFile("pdfFile");
+            LogUtil.info(getClassName(), "PdfUploadMenu: Found via Spring Wrapper");
+        }
 
-                if (resolver.isMultipart(request)) {
-                    multipartRequest = resolver.resolveMultipart(request);
-                }
+        // STRATEGY 2: If Strategy 1 failed, try manual resolution
+        if (mFile == null) {
+            ApplicationContext ac = AppUtil.getApplicationContext();
+            MultipartResolver resolver = (MultipartResolver) ac.getBean("multipartResolver");
+            if (resolver.isMultipart(request)) {
+                multipartRequest = resolver.resolveMultipart(request);
+                mFile = multipartRequest.getFile("pdfFile");
+                LogUtil.info(getClassName(), "PdfUploadMenu: Found via Manual Resolver");
+
             }
+        }
 
-            if (multipartRequest != null) {
-
-//                handlePdfProcessing(multipartRequest, response);
-                MultipartFile mFile = multipartRequest.getFile("pdfFile");
-                if (mFile != null && !mFile.isEmpty()) {
-                    try {
-                        // 1. Process to bytes
-                        byte[] compressedResult = compressPdfToBytes(mFile.getInputStream(), "medium", true, "PREVIEW");
-
-                        // 2. ABSOLUTELY IMPORTANT: Clear anything previously written by Joget/Spring
-                        response.reset();
-                        response.resetBuffer();
-
-                        // 3. Set standard PDF headers
-                        response.setContentType("application/pdf");
-                        response.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
-                        response.setContentLength(compressedResult.length);
-
-                        // 4. Write and Force Flush
-                        try (OutputStream os = response.getOutputStream()) {
-                            os.write(compressedResult);
-                            os.flush();
-                        }
-
-                        // 5. Tell the servlet container we are done
-                        return;
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        // Send a plain text error if it fails
-                        response.setContentType("text/plain");
-                        response.getWriter().write("Error: " + e.getMessage());
-                    }
+        // STRATEGY 3: The "Last Resort" (Servlet 3.0 API)
+        // Use this if Spring has totally "eaten" the stream headers
+        if (mFile == null) {
+            try {
+                Part part = request.getPart("pdfFile");
+                if (part != null) {
+                    LogUtil.info(getClassName(), "PdfUploadMenu: Found via Servlet Part API");
+                    // We need to convert Part to bytes manually
+                    byte[] bytes = org.apache.commons.io.IOUtils.toByteArray(part.getInputStream());
+                    handleProcessing(bytes, response);
+                    return;
                 }
-            } else {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid Multipart Request");
+            } catch (Exception e) {
+                // getPart might fail if not configured, ignore and move to error
             }
+        }
+
+        // FINAL VALIDATION
+        if (mFile != null && !mFile.isEmpty()) {
+            handleProcessing(mFile.getBytes(), response);
+        } else {
+            // Log ALL parameters to see what DID arrive
+            System.out.println("PdfUploadMenu: No file found. Available params: " + request.getParameterMap().keySet());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "File 'pdfFile' not found. Check server console for parameter dump.");
+        }
         } catch (Exception e) {
             response.sendError(500, "Error: " + e.getMessage());
         } finally {
@@ -209,6 +208,20 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSu
                         (org.springframework.web.multipart.MultipartResolver) ac.getBean("multipartResolver");
                 resolver.cleanupMultipart(multipartRequest);
             }
+        }
+    }
+
+    private void handleProcessing(byte[] pdfBytes, HttpServletResponse response) throws Exception {
+        byte[] compressed = compressPdfToBytes(new ByteArrayInputStream(pdfBytes), "medium", true, "PREVIEW");
+
+        response.reset();
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
+        response.setContentLength(compressed.length);
+
+        try (OutputStream os = response.getOutputStream()) {
+            os.write(compressed);
+            os.flush();
         }
     }
 
