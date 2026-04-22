@@ -76,7 +76,16 @@
     });
 
     function uploadAndPreview(file) {
-        // 1. Prepare UI
+        const maxSizeMB = parseInt("${menu.properties.maxSize!0}");
+        if (maxSizeMB > 0) {
+            const fileSizeMB = file.size / (1024 * 1024);
+            if (fileSizeMB > maxSizeMB) {
+                const msg = "${menu.properties.maxSizeMsg!'File is too big'}";
+                alert(msg + " (Maks: " + maxSizeMB + " MB)");
+                return;
+            }
+        }
+
         overlay.style.display = 'flex';
         loader.style.display = 'block';
         viewer.style.display = 'none'; // Hide old PDF
@@ -88,45 +97,62 @@
         const csrfToken = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenValue : '';
         const csrfName = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenName : '';
 
-        fetch('${request.contextPath}/web/json/plugin/${className}/service', {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                [csrfName]: csrfToken
-            },
-            body: formData
-        })
-        .then(response => {
-            console.log("Response Status:", response.status);
-            if (!response.ok){
-                return response.text().then(errorText => {
-                        // Throw the specific message from the server
-                        throw new Error(errorText || "Unknown Server Error " + response.status);
-                    });
+        const xhr = new XMLHttpRequest();
+
+        // Track progress upload
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                loader.textContent = 'Uploading... ' + pct + '%';
             }
-            return response.blob();
-        })
-        .then(blob => {
-            console.log("Received Blob Size:", blob.size, "bytes");
-
-            if (blob.size === 0) {
-                throw new Error("Server returned 0 bytes. Check Java logs.");
-            }
-
-            const url = URL.createObjectURL(blob);
-
-            // 2. Update UI with new PDF
-            loader.style.display = 'none';
-            viewer.style.display = 'block';
-            viewer.src = url;
-        })
-        .catch(err => {
-            console.error("AJAX Error:", err);
-            alert("Error: " + err.message);
-            // Hide everything on failure
-            overlay.style.display = 'none';
-            loader.style.display = 'none';
         });
+
+        // Server selesai kompresi
+        xhr.upload.addEventListener('load', () => {
+            loader.textContent = 'Compressing PDF on server...';
+        });
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const blob = new Blob([xhr.response], { type: 'application/pdf' });
+                if (blob.size === 0) {
+                    alert('Server returned 0 bytes. Check Java logs.');
+                    overlay.style.display = 'none';
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                loader.style.display = 'none';
+                viewer.style.display = 'block';
+                viewer.src = url;
+            } else {
+                const errorText = new TextDecoder().decode(new Uint8Array(xhr.response));
+                console.error('Server error:', errorText);
+                alert('Error ' + xhr.status + ': ' + errorText);
+                overlay.style.display = 'none';
+                loader.style.display = 'none';
+            }
+        };
+
+        xhr.onerror = function () {
+            alert('Network error. Check server.');
+            overlay.style.display = 'none';
+        };
+
+        const level = "${menu.properties.compressionLevel!'medium'}";
+        const enableWatermark = "${menu.properties.enableWatermark!'false'}";
+        const watermarkText = "${menu.properties.watermarkText!'PREVIEW'}";
+
+        xhr.open('POST', '${request.contextPath}/web/json/plugin/${className}/service'
+            + '?level=' + encodeURIComponent(level)
+            + '&watermark=' + encodeURIComponent(enableWatermark)
+            + '&watermarkText=' + encodeURIComponent(watermarkText)
+        );
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (csrfName && csrfToken) {
+            xhr.setRequestHeader(csrfName, csrfToken);
+        }
+        xhr.responseType = 'arraybuffer';
+        xhr.send(formData);
     }
 
     closeBtn.addEventListener('click', () => {

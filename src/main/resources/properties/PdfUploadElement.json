@@ -15,22 +15,22 @@
         "required": "false"
       },
       {
-        name : 'maxSize',
-        label : '@@form.fileupload.maxSize@@',
-        type : 'textfield',
-        regex_validation : '^[0-9]+$',
-        validation_message : '@@form.fileupload.invalidSize@@'
+        "name" : "maxSize",
+        "label" : "@@form.fileupload.maxSize@@",
+        "type" : "textfield",
+        "regex_validation" : "^[0-9]+$",
+        "validation_message" : "@@form.fileupload.invalidSize@@"
       },
       {
-        name : 'maxSizeMsg',
-        label : '@@form.fileupload.maxSize.msg@@',
-        type : 'textfield',
-        value : '@@form.fileupload.maxSize.msg.fileTooBig@@'
+        "name" : "maxSizeMsg",
+        "label" : "@@form.fileupload.maxSize.msg@@",
+        "type" : "textfield",
+        "value" : "@@form.fileupload.maxSize.msg.fileTooBig@@"
       },
       {
-        name : 'fileType',
-        label : 'pdf',
-        type : 'hidden'
+        "name" : "fileType",
+        "label" : "pdf",
+        "type" : "hidden"
       },
       {
         "name": "compressionLevel",

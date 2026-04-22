@@ -159,6 +159,7 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         if (!filePaths.isEmpty()) {
             dataModel.put("filePaths", filePaths);
         }
+        dataModel.put("className", getClassName());
         String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
         return html;
     }

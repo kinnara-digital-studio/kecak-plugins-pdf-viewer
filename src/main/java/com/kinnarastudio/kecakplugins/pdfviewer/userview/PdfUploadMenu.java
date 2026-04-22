@@ -150,69 +150,99 @@ public class PdfUploadMenu extends UserviewMenu implements PdfUtils, PluginWebSu
     public void webService(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        MultipartHttpServletRequest multipartRequest = null;
-        MultipartFile mFile = null;
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return;
+        }
 
         try {
-            // STRATEGY 1: Check if Spring already wrapped it
-        if (request instanceof MultipartHttpServletRequest) {
-            multipartRequest = (MultipartHttpServletRequest) request;
-            mFile = multipartRequest.getFile("pdfFile");
-            LogUtil.info(getClassName(), "PdfUploadMenu: Found via Spring Wrapper");
-        }
+            MultipartFile mFile = resolveMultipartFile(request);
 
-        // STRATEGY 2: If Strategy 1 failed, try manual resolution
-        if (mFile == null) {
-            ApplicationContext ac = AppUtil.getApplicationContext();
-            MultipartResolver resolver = (MultipartResolver) ac.getBean("multipartResolver");
-            if (resolver.isMultipart(request)) {
-                multipartRequest = resolver.resolveMultipart(request);
-                mFile = multipartRequest.getFile("pdfFile");
-                LogUtil.info(getClassName(), "PdfUploadMenu: Found via Manual Resolver");
-
+            if (mFile == null || mFile.isEmpty()) {
+                LogUtil.warn(getClassName(), "File 'pdfFile' tidak ditemukan di semua strategy");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "File 'pdfFile' not found.");
+                return;
             }
-        }
 
-        // STRATEGY 3: The "Last Resort" (Servlet 3.0 API)
-        // Use this if Spring has totally "eaten" the stream headers
-        if (mFile == null) {
-            try {
-                Part part = request.getPart("pdfFile");
-                if (part != null) {
-                    LogUtil.info(getClassName(), "PdfUploadMenu: Found via Servlet Part API");
-                    // We need to convert Part to bytes manually
-                    byte[] bytes = org.apache.commons.io.IOUtils.toByteArray(part.getInputStream());
-                    handleProcessing(bytes, response);
-                    return;
-                }
-            } catch (Exception e) {
-                // getPart might fail if not configured, ignore and move to error
-            }
-        }
+            LogUtil.info(getClassName(), "File ditemukan: " + mFile.getSize() + " bytes");
+            handleProcessing(mFile.getBytes(), response, request);
 
-        // FINAL VALIDATION
-        if (mFile != null && !mFile.isEmpty()) {
-            handleProcessing(mFile.getBytes(), response);
-        } else {
-            // Log ALL parameters to see what DID arrive
-            System.out.println("PdfUploadMenu: No file found. Available params: " + request.getParameterMap().keySet());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "File 'pdfFile' not found. Check server console for parameter dump.");
-        }
         } catch (Exception e) {
-            response.sendError(500, "Error: " + e.getMessage());
-        } finally {
-            // Clean up: If we resolved it manually, we should clean up the files
-            if (multipartRequest != null && !(request instanceof MultipartHttpServletRequest)) {
-                ApplicationContext ac = AppUtil.getApplicationContext();
-                org.springframework.web.multipart.MultipartResolver resolver =
-                        (org.springframework.web.multipart.MultipartResolver) ac.getBean("multipartResolver");
-                resolver.cleanupMultipart(multipartRequest);
+            LogUtil.error(getClassName(), e, e.getMessage());
+            if (!response.isCommitted()) {
+                response.sendError(500, "Error: " + e.getMessage());
             }
         }
     }
 
-    private void handleProcessing(byte[] pdfBytes, HttpServletResponse response) throws Exception {
-        byte[] compressed = compressPdfToBytes(new ByteArrayInputStream(pdfBytes), "medium", true, "PREVIEW");
+    /**
+     * Telusuri semua wrapper layer untuk menemukan MultipartFile
+     */
+    private MultipartFile resolveMultipartFile(HttpServletRequest request) {
+        HttpServletRequest current = request;
+
+        // Loop: unwrap semua layer wrapper
+        while (current != null) {
+            LogUtil.info(getClassName(), "Checking request type: " + current.getClass().getName());
+
+            // Cek apakah layer ini adalah MultipartHttpServletRequest
+            if (current instanceof MultipartHttpServletRequest) {
+                MultipartHttpServletRequest multipart = (MultipartHttpServletRequest) current;
+                MultipartFile mFile = multipart.getFile("pdfFile");
+                if (mFile != null && !mFile.isEmpty()) {
+                    LogUtil.info(getClassName(), "Found via wrapper: " + current.getClass().getName());
+                    return mFile;
+                }
+            }
+
+            // Unwrap satu layer (HttpServletRequestWrapper → getRequest())
+            if (current instanceof javax.servlet.http.HttpServletRequestWrapper) {
+                javax.servlet.ServletRequest inner =
+                        ((javax.servlet.http.HttpServletRequestWrapper) current).getRequest();
+                if (inner instanceof HttpServletRequest) {
+                    current = (HttpServletRequest) inner;
+                } else {
+                    break;
+                }
+            } else {
+                break; // Sudah sampai layer paling dalam
+            }
+        }
+
+        // Fallback: coba Spring ApplicationContext resolver
+        try {
+            ApplicationContext ac = AppUtil.getApplicationContext();
+            MultipartResolver resolver = (MultipartResolver) ac.getBean("multipartResolver");
+            if (resolver.isMultipart(request)) {
+                MultipartHttpServletRequest multipart = resolver.resolveMultipart(request);
+                MultipartFile mFile = multipart.getFile("pdfFile");
+                LogUtil.info(getClassName(), "Found via ApplicationContext resolver");
+                return mFile;
+            }
+        } catch (Exception e) {
+            LogUtil.warn(getClassName(), "Resolver fallback failed: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    private void handleProcessing(byte[] pdfBytes, HttpServletResponse response, HttpServletRequest request) throws Exception {
+        String level = request.getParameter("level");
+        LogUtil.info(getClassName(), "compressionLevel dari properties: [" + level + "]");
+
+        if (level == null || level.isEmpty()) level = "medium";
+        LogUtil.info(getClassName(), "level yang dipakai: [" + level + "]");
+
+        boolean enableWatermark = "true".equalsIgnoreCase(request.getParameter("watermark"));
+        String watermarkText = request.getParameter("watermarkText");
+        if (watermarkText == null || watermarkText.isEmpty()) watermarkText = "PREVIEW";
+
+        byte[] compressed = compressPdfToBytes(
+                new ByteArrayInputStream(pdfBytes),
+                level,
+                enableWatermark,
+                watermarkText
+        );
 
         response.reset();
         response.setContentType("application/pdf");

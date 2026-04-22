@@ -24,7 +24,7 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.commons.util.LogUtil;
-import org.apache.commons.io.IOUtils;
+//import org.apache.commons.io.IOUtils;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.springframework.web.client.RestClientException;
 
@@ -218,9 +218,20 @@ public interface PdfUtils {
      * Compresses PDF and returns bytes. No file is created/saved on the server.
      */
     default byte[] compressPdfToBytes(InputStream inputStream, String level, boolean watermark, String text) throws IOException {
-        // DIAGNOSTIC 1: Read raw bytes first to ensure we actually have data
-        byte[] inputBytes = IOUtils.toByteArray(inputStream);
-        System.out.println("PdfUtil: Input received. Size: " + inputBytes.length + " bytes");
+
+        // Ganti IOUtils.toByteArray() dengan pure Java
+        byte[] inputBytes;
+        try (InputStream is = inputStream; ByteArrayOutputStream bos = new ByteArrayOutputStream()){
+            //ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = is.read(chunk)) != -1) {
+                bos.write(chunk, 0, bytesRead);
+            }
+            inputBytes = bos.toByteArray();
+        }
+
+        LogUtil.info(getClass().getName(), "PdfUtil: Input received. Size: " + inputBytes.length + " bytes");
 
         if (inputBytes.length == 0) {
             throw new IOException("Input stream was empty before PDF processing.");
@@ -229,26 +240,24 @@ public interface PdfUtils {
         float scale = 0.6f;
         float quality = 0.6f;
 
-        // Map settings
         if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
         else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
 
-        try (PDDocument document = PDDocument.load(inputStream, MemoryUsageSetting.setupTempFileOnly());
+        try (PDDocument document = PDDocument.load(inputBytes, String.valueOf(MemoryUsageSetting.setupTempFileOnly()));
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-            System.out.println("PdfUtil: Document loaded. Page count: " + document.getNumberOfPages());
+            LogUtil.info(getClass().getName(), "PdfUtil: Document loaded. Pages: " + document.getNumberOfPages());
 
             for (PDPage page : document.getPages()) {
                 PDResources resources = page.getResources();
 
-                // 1. Image Compression Logic
                 if (!"none".equals(level) && resources != null) {
                     for (COSName name : resources.getXObjectNames()) {
                         if (resources.isImageXObject(name)) {
                             PDImageXObject image = (PDImageXObject) resources.getXObject(name);
                             BufferedImage rawImage = image.getImage();
 
-                            if (rawImage != null && (rawImage.getWidth() > 500)) {
+                            if (rawImage != null && rawImage.getWidth() > 500) {
                                 int nW = Math.round(rawImage.getWidth() * scale);
                                 int nH = Math.round(rawImage.getHeight() * scale);
 
@@ -264,9 +273,9 @@ public interface PdfUtils {
                     }
                 }
 
-                // 2. Watermarking Logic
                 if (watermark && text != null && !text.isEmpty()) {
-                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    try (PDPageContentStream cs = new PDPageContentStream(document, page,
+                            PDPageContentStream.AppendMode.APPEND, true, true)) {
                         PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
                         gs.setNonStrokingAlphaConstant(0.3f);
                         cs.setGraphicsStateParameters(gs);
@@ -276,7 +285,7 @@ public interface PdfUtils {
 
                         float w = page.getMediaBox().getWidth();
                         float h = page.getMediaBox().getHeight();
-                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
+                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w / 5, h / 5));
                         cs.showText(text);
                         cs.endText();
                     }
@@ -285,7 +294,7 @@ public interface PdfUtils {
 
             document.save(baos);
             byte[] result = baos.toByteArray();
-            System.out.println("PdfUtil: Compression complete. Output size: " + result.length + " bytes");
+            LogUtil.info(getClass().getName(), "PdfUtil: Done. Output size: " + result.length + " bytes");
             return result;
         }
     }
