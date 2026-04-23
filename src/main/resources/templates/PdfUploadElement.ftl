@@ -1,102 +1,60 @@
 <style>
+    #pdf-preview-wrap-${elementParamName!} {
+        margin-top: 10px;
+        display: none;
+    }
+    #pdf-preview-wrap-${elementParamName!} iframe {
+        width: 100%;
+        height: 400px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
     #drop-zone-${elementParamName!} {
         border: 2px dashed #007bff;
         border-radius: 5px;
-        padding: 30px;
+        padding: 20px;
         text-align: center;
         background: #f8f9fa;
         cursor: pointer;
         transition: background 0.2s;
     }
-
     #drop-zone-${elementParamName!}:hover,
     #drop-zone-${elementParamName!}.drag-over {
         background: #e3f0ff;
-        border-color: #0056b3;
     }
-
-    #full-page-preview-${elementParamName!} {
-        display: none;
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw; height: 100vh;
-        background: rgba(0,0,0,0.85);
-        z-index: 9999;
-        flex-direction: column;
+    .pdf-file-item {
+        display: flex;
         align-items: center;
-        justify-content: center;
-    }
-
-    #full-page-preview-${elementParamName!} iframe {
-        width: 90%;
-        height: 85%;
-        border: none;
-        background: white;
-    }
-
-    #close-btn-${elementParamName!} {
-        position: absolute;
-        top: 20px; right: 40px;
-        color: white;
-        font-size: 30px;
-        cursor: pointer;
-        font-family: Arial, sans-serif;
-        user-select: none;
-    }
-
-    #pdf-loader-${elementParamName!} {
-        color: white;
-        text-align: center;
-        font-size: 16px;
-        margin-bottom: 12px;
-    }
-
-    #progress-wrap-${elementParamName!} {
-        display: none;
-        width: 60%;
-        margin-top: 10px;
-    }
-
-    #progress-wrap-${elementParamName!} .progress-track {
-        background: #444;
-        border-radius: 4px;
-        height: 8px;
-        width: 100%;
-    }
-
-    #progress-bar-${elementParamName!} {
-        background: #007bff;
-        border-radius: 4px;
-        height: 8px;
-        width: 0%;
-        transition: width 0.3s;
-    }
-
-    #progress-text-${elementParamName!} {
-        color: #ccc;
-        font-size: 13px;
-        margin-top: 6px;
-        text-align: center;
-    }
-
-    ul.form-fileupload-value li {
-        display: block;
+        gap: 8px;
         margin-top: 8px;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
     }
-
-    .pdf-preview-link {
-        margin-left: 8px;
+    .pdf-file-item a {
+        flex: 1;
+    }
+    .pdf-preview-toggle {
         font-size: smaller;
         color: #007bff;
         cursor: pointer;
         text-decoration: underline;
+        white-space: nowrap;
+    }
+    .pdf-inline-preview {
+        width: 100%;
+        height: 400px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-top: 6px;
+        display: none;
     }
 </style>
 
 <div class="form-cell" ${elementMetaData!}>
     <label class="label">
         ${element.properties.label!}
-        <span class="form-cell-validator">${decoration}</span>
+        <span class="form-cell-validator">${decoration!}</span>
         <#if error??>
             <span class="form-error-message">${error}</span>
         </#if>
@@ -105,74 +63,70 @@
     <div class="form-fileupload">
 
         <#if element.properties.readonly! != 'true'>
-            <!-- Drop Zone -->
             <div id="drop-zone-${elementParamName!}">
-                <p style="margin:0; color:#555;">
-                    Drag & Drop PDF di sini atau <strong>klik untuk pilih file</strong>
+                <p style="margin:0 0 4px; color:#555;">
+                    Drag & Drop PDF atau <strong>klik untuk pilih</strong>
                 </p>
                 <small style="color:#999;">Hanya file PDF</small>
                 <input id="input-${elementParamName!}"
                        name="${elementParamName!}"
                        type="file"
                        accept="application/pdf"
-                       size="${element.properties.size!}"
-                       <#if error??>class="form-error-cell"</#if>
                        <#if element.properties.multiple! == 'true'>multiple</#if>
+                       <#if error??>class="form-error-cell"</#if>
                        style="display:none;"/>
+            </div>
+
+            <!-- Preview inline untuk file baru (sebelum submit) -->
+            <div id="pdf-preview-wrap-${elementParamName!}">
+                <iframe id="pdf-preview-${elementParamName!}"></iframe>
             </div>
         </#if>
 
-        <!-- Full Page Preview Overlay -->
-        <div id="full-page-preview-${elementParamName!}">
-            <span id="close-btn-${elementParamName!}">&times; Tutup Preview</span>
-            <div id="pdf-loader-${elementParamName!}">Memuat PDF...</div>
-            <div id="progress-wrap-${elementParamName!}">
-                <div class="progress-track">
-                    <div id="progress-bar-${elementParamName!}"></div>
-                </div>
-                <div id="progress-text-${elementParamName!}">Uploading... 0%</div>
-            </div>
-            <iframe id="full-viewer-${elementParamName!}" style="display:none;"></iframe>
-        </div>
-
-        <!-- List File -->
+        <!-- List file yang sudah ada -->
         <#if tempFilePaths?? || filePaths??>
-            <ul class="form-fileupload-value">
+            <ul class="form-fileupload-value" style="list-style:none; padding:0; margin-top:8px;">
+
                 <#if tempFilePaths??>
                     <#list tempFilePaths?keys as key>
                         <li>
-                            📄 ${tempFilePaths[key]!?html}
-                            <input type="hidden" name="${elementParamName!}_path" value="${key!?html}"/>
-                            <span class="pdf-preview-link"
-                                  data-path="${key!?html}"
-                                  onclick="previewTempPdf('${elementParamName!}', '${key!?html}')">
-                                Preview
-                            </span>
-                            <#if element.properties.readonly! != 'true'>
-                                <input type="checkbox" name="${elementParamName!}_remove" value="${key!?html}"/>
-                                <span style="font-size:smaller">@@form.fileupload.remove@@</span>
-                            </#if>
+                            <div class="pdf-file-item">
+                                <span>📄 ${tempFilePaths[key]!?html}</span>
+                                <input type="hidden" name="${elementParamName!}_path" value="${key!?html}"/>
+                                <#if element.properties.readonly! != 'true'>
+                                    <input type="checkbox" name="${elementParamName!}_remove" value="${key!?html}"/>
+                                    <span style="font-size:smaller">@@form.fileupload.remove@@</span>
+                                </#if>
+                            </div>
                         </li>
                     </#list>
                 </#if>
+
                 <#if filePaths??>
                     <#list filePaths?keys as key>
                         <li>
-                            📄 <a href="${request.contextPath}${key!?html}" target="_blank">
-                                ${filePaths[key]!?html}
-                            </a>
-                            <span class="pdf-preview-link"
-                                  onclick="previewSavedPdf('${elementParamName!}', '${request.contextPath}${key!?html}')">
-                                Preview
-                            </span>
-                            <input type="hidden" name="${elementParamName!}_path" value="${filePaths[key]!?html}"/>
-                            <#if element.properties.readonly! != 'true'>
-                                <input type="checkbox" name="${elementParamName!}_remove" value="${filePaths[key]!?html}"/>
-                                <span style="font-size:smaller">@@form.fileupload.remove@@</span>
-                            </#if>
+                            <div class="pdf-file-item">
+                                <a href="${request.contextPath}${key!?html}" target="_blank">
+                                    📄 ${filePaths[key]!?html}
+                                </a>
+                                <span class="pdf-preview-toggle"
+                                      data-url="${request.contextPath}${key!?html}"
+                                      data-id="${elementParamName!}-${key?index}">
+                                    ▶ Preview
+                                </span>
+                                <input type="hidden" name="${elementParamName!}_path" value="${filePaths[key]!?html}"/>
+                                <#if element.properties.readonly! != 'true'>
+                                    <input type="checkbox" name="${elementParamName!}_remove" value="${filePaths[key]!?html}"/>
+                                    <span style="font-size:smaller">@@form.fileupload.remove@@</span>
+                                </#if>
+                            </div>
+                            <!-- Preview inline per file -->
+                            <iframe id="preview-${elementParamName!}-${key?index}"
+                                    class="pdf-inline-preview"></iframe>
                         </li>
                     </#list>
                 </#if>
+
             </ul>
         </#if>
 
@@ -181,162 +135,80 @@
 
 <script type="text/javascript">
 (function() {
-    const paramName  = "${elementParamName!}";
-    const dropZone   = document.getElementById('drop-zone-'         + paramName);
-    const fileInput  = document.getElementById('input-'             + paramName);
-    const overlay    = document.getElementById('full-page-preview-' + paramName);
-    const viewer     = document.getElementById('full-viewer-'       + paramName);
-    const loader     = document.getElementById('pdf-loader-'        + paramName);
-    const progressWrap = document.getElementById('progress-wrap-'   + paramName);
-    const progressBar  = document.getElementById('progress-bar-'    + paramName);
-    const progressText = document.getElementById('progress-text-'   + paramName);
-    const closeBtn   = document.getElementById('close-btn-'         + paramName);
-
-    if (!dropZone) return;
+    const paramName = "${elementParamName!}";
+    const dropZone  = document.getElementById('drop-zone-' + paramName);
+    const fileInput = document.getElementById('input-'     + paramName);
+    const previewWrap = document.getElementById('pdf-preview-wrap-' + paramName);
+    const previewFrame = document.getElementById('pdf-preview-'     + paramName);
 
     // ── Drag & Drop ──────────────────────────────────────────────
-    dropZone.addEventListener('click', () => fileInput.click());
+    if (dropZone) {
+        dropZone.addEventListener('click', () => fileInput.click());
 
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
 
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('drag-over');
-    });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+    }
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) handleFile(files[0]);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleFile(e.target.files[0]);
-    });
-
-    // ── Handle File ───────────────────────────────────────────────
     function handleFile(file) {
-        // Validasi tipe file
         if (file.type !== 'application/pdf') {
             alert('Hanya file PDF yang diperbolehkan.');
             return;
         }
 
-        // Validasi ukuran jika ada maxSize
         <#if element.properties.maxSize?? && element.properties.maxSize != ''>
-        const maxSizeMB = ${element.properties.maxSize};
-        const fileSizeMB = file.size / (1024 * 1024);
-        if (fileSizeMB > maxSizeMB) {
-            alert('${element.properties.maxSizeMsg!'File terlalu besar'} (Maks: ' + maxSizeMB + ' MB)');
+        const maxMB = parseFloat('${element.properties.maxSize!}');
+        if (file.size / 1024 / 1024 > maxMB) {
+            alert('${element.properties.maxSizeMsg!'File terlalu besar'} (Maks: ' + maxMB + ' MB)');
+            fileInput.value = '';
             return;
         }
         </#if>
 
-        // Tampilkan overlay + upload
-        showOverlay('Mengupload PDF...');
-        uploadFile(file);
+        // ✅ Preview langsung dari browser — tidak perlu upload ke server
+        const url = URL.createObjectURL(file);
+        previewFrame.src = url;
+        previewWrap.style.display = 'block';
+
+        // Update label drop zone
+        dropZone.querySelector('p').textContent = '📄 ' + file.name;
     }
 
-    // ── Upload via XHR ────────────────────────────────────────────
-    function uploadFile(file) {
-        const formData = new FormData();
-        formData.append(paramName, file);
+    // ── Toggle preview untuk file tersimpan ──────────────────────
+    document.querySelectorAll('.pdf-preview-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const url   = this.getAttribute('data-url');
+            const id    = this.getAttribute('data-id');
+            const frame = document.getElementById('preview-' + id);
 
-        const csrfToken = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenValue : '';
-        const csrfName  = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenName  : '';
+            if (!frame) return;
 
-        const xhr = new XMLHttpRequest();
-
-        // Progress upload
-        xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 100);
-                progressBar.style.width = pct + '%';
-                progressText.textContent = 'Uploading... ' + pct + '%';
-            }
-        });
-
-        xhr.upload.addEventListener('load', () => {
-            loader.textContent = 'Memproses PDF di server...';
-            progressWrap.style.display = 'none';
-        });
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                const blob = new Blob([xhr.response], { type: 'application/pdf' });
-                if (blob.size === 0) {
-                    alert('Server mengembalikan file kosong.');
-                    hideOverlay();
-                    return;
-                }
-                showPdf(URL.createObjectURL(blob));
+            if (frame.style.display === 'block') {
+                // Sembunyikan
+                frame.style.display = 'none';
+                frame.src = '';
+                this.textContent = '▶ Preview';
             } else {
-                // Decode error message dari arraybuffer
-                const errText = new TextDecoder().decode(new Uint8Array(xhr.response));
-                alert('Error ' + xhr.status + ': ' + errText);
-                hideOverlay();
+                // Tampilkan
+                frame.src = url;
+                frame.style.display = 'block';
+                this.textContent = '▼ Tutup';
             }
-        };
-
-        xhr.onerror = function() {
-            alert('Network error. Periksa koneksi atau server.');
-            hideOverlay();
-        };
-
-        xhr.open('POST', '${request.contextPath}/web/json/plugin/${className!}/service');
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (csrfName && csrfToken) {
-            xhr.setRequestHeader(csrfName, csrfToken);
-        }
-        xhr.responseType = 'arraybuffer';
-        xhr.send(formData);
-    }
-
-    // ── UI Helpers ────────────────────────────────────────────────
-    function showOverlay(loaderText) {
-        overlay.style.display = 'flex';
-        loader.style.display  = 'block';
-        loader.textContent    = loaderText;
-        progressWrap.style.display = 'block';
-        progressBar.style.width    = '0%';
-        progressText.textContent   = 'Uploading... 0%';
-        viewer.style.display  = 'none';
-        viewer.src = 'about:blank';
-    }
-
-    function hideOverlay() {
-        overlay.style.display = 'none';
-        viewer.src = '';
-    }
-
-    function showPdf(url) {
-        loader.style.display = 'none';
-        viewer.style.display = 'block';
-        viewer.src = url;
-    }
-
-    // Tutup overlay
-    closeBtn.addEventListener('click', () => {
-        if (viewer.src.startsWith('blob:')) URL.revokeObjectURL(viewer.src);
-        hideOverlay();
+        });
     });
-
-    // ── Preview Functions (dipanggil dari onclick di list file) ───
-    window.previewTempPdf = function(pName, path) {
-        if (pName !== paramName) return;
-        const url = '${request.contextPath}/web/json/plugin/${element.properties.className!}/service?_path=' + encodeURIComponent(path);
-        showOverlay('Memuat preview...');
-        showPdf(url);
-    };
-
-    window.previewSavedPdf = function(pName, url) {
-        if (pName !== paramName) return;
-        showOverlay('Memuat preview...');
-        showPdf(url);
-    };
 
 })();
 </script>

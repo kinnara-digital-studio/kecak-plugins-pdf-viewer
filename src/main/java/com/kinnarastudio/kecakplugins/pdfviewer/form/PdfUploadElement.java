@@ -90,23 +90,19 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
     public String renderTemplate(FormData formData, Map dataModel) {
         String template = "PdfUploadElement.ftl";
 
-        // set value
         String[] values = FormUtil.getElementPropertyValues(this, formData);
 
-        //check is there a stored value
         String storedValue = formData.getStoreBinderDataProperty(this);
         if (storedValue != null) {
             values = storedValue.split(";");
         }
 
-
-        Map<String, String> tempFilePaths = new LinkedHashMap<String, String>();
-        Map<String, String> filePaths = new LinkedHashMap<String, String>();
+        Map<String, String> tempFilePaths = new LinkedHashMap<>();
+        Map<String, String> filePaths = new LinkedHashMap<>();
 
         String primaryKeyValue = getPrimaryKeyValue(formData);
-        String filePathPostfix = "_path";
         String id = FormUtil.getElementParameterName(this);
-        String[] tempExisting = formData.getRequestParameterValues(id + filePathPostfix);
+        String[] tempExisting = formData.getRequestParameterValues(id + "_path");
 
         if (tempExisting != null && tempExisting.length > 0) {
             values = tempExisting;
@@ -117,51 +113,49 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         if (form != null) {
             formDefId = form.getPropertyString(FormUtil.PROPERTY_ID);
         }
+
         String appId = "";
         String appVersion = "";
-
         AppDefinition appDef = AppUtil.getCurrentAppDefinition();
-
         if (appDef != null) {
             appId = appDef.getId();
             appVersion = appDef.getVersion().toString();
         }
 
         for (String value : values) {
-            // check if the file is in temp file
+            if (value == null || value.isEmpty()) continue;
+
             File file = FileManager.getFileByPath(value);
-
             if (file != null) {
+                // File masih di temp storage
                 tempFilePaths.put(value, file.getName());
-            } else if (value != null && !value.isEmpty()) {
-                // determine actual path for the file uploads
-                String fileName = value;
-                String encodedFileName = fileName;
-                if (fileName != null) {
-                    try {
-                        encodedFileName = URLEncoder.encode(fileName, "UTF8").replaceAll("\\+", "%20");
-                    } catch (UnsupportedEncodingException ex) {
-                        // ignore
-                    }
-                }
+            } else {
+                // File sudah tersimpan di permanent storage
+                if (primaryKeyValue == null || primaryKeyValue.isEmpty()) continue;
 
-                String filePath = "/web/client/app/" + appId + "/" + appVersion + "/form/download/" + formDefId + "/" + primaryKeyValue + "/" + encodedFileName + ".";
-                if (Boolean.valueOf(getPropertyString("attachment")).booleanValue()) {
+                String encodedFileName = value;
+                try {
+                    encodedFileName = URLEncoder.encode(value, "UTF8").replaceAll("\\+", "%20");
+                } catch (UnsupportedEncodingException ex) { }
+
+                String filePath = "/web/client/app/" + appId + "/" + appVersion
+                        + "/form/download/" + formDefId + "/" + primaryKeyValue
+                        + "/" + encodedFileName;
+
+                if (Boolean.parseBoolean(getPropertyString("attachment"))) {
                     filePath += "?attachment=true";
                 }
                 filePaths.put(filePath, value);
             }
         }
 
-        if (!tempFilePaths.isEmpty()) {
-            dataModel.put("tempFilePaths", tempFilePaths);
-        }
-        if (!filePaths.isEmpty()) {
-            dataModel.put("filePaths", filePaths);
-        }
+        if (!tempFilePaths.isEmpty()) dataModel.put("tempFilePaths", tempFilePaths);
+        if (!filePaths.isEmpty()) dataModel.put("filePaths", filePaths);
+
+        // Hanya ini yang dibutuhkan FTL
         dataModel.put("className", getClassName());
-        String html = FormUtil.generateElementHtml(this, formData, template, dataModel);
-        return html;
+
+        return FormUtil.generateElementHtml(this, formData, template, dataModel);
     }
 
     @Override
@@ -241,12 +235,11 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
     @Override
     public FormRowSet formatData(FormData formData) {
         FormRowSet rowSet = null;
-
         String id = getPropertyString(FormUtil.PROPERTY_ID);
 
         Set<String> remove = null;
         if ("true".equals(getPropertyString("removeFile"))) {
-            remove = new HashSet<String>();
+            remove = new HashSet<>();
             Form form = FormUtil.findRootForm(this);
             String originalValues = formData.getLoadBinderDataProperty(form, id);
             if (originalValues != null) {
@@ -254,66 +247,68 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
             }
         }
 
-        // get value
         if (id != null) {
             String[] values = FormUtil.getElementPropertyValues(this, formData);
             if (values != null && values.length > 0) {
-                // set value into Properties and FormRowSet object
                 FormRow result = new FormRow();
-                List<String> resultedValue = new ArrayList<String>();
-                List<String> filePaths = new ArrayList<String>();
+                List<String> resultedValue = new ArrayList<>();
+                List<String> filePaths = new ArrayList<>();
+
+                String compressionLevel = getPropertyString("compressionLevel");
+                boolean enableWatermark = "true".equals(getPropertyString("enableWatermark"));
+                String watermarkText = getPropertyString("watermarkText");
 
                 for (String value : values) {
-                    // check if the file is in temp file
+                    if (value == null || value.isEmpty()) continue;
+
                     File file = FileManager.getFileByPath(value);
-                    String compressionLevel = getPropertyString("compressionLevel");
-                    boolean enableWatermark = "true".equals(getPropertyString("enableWatermark"));
-                    String watermarkText = getPropertyString("watermarkText");
+                    LogUtil.info(getClassName(), "value: [" + value + "] file: [" + (file == null ? "NULL" : file.getAbsolutePath()) + "]");
 
-                    if (file.getName().toLowerCase().endsWith(".pdf") && !"none".equals(compressionLevel)) {
-                        // --- PDF PROCESSING START ---
-                         try {
-                            LogUtil.info(getClassName(), "Compressing large PDF: " + file.getName() + " (" + (file.length() / 1024 / 1024) + "MB)");
-                            compressPdf(file, compressionLevel, enableWatermark, watermarkText);
-                            LogUtil.info(getClassName(), "Compression complete. New size: " + (file.length() / 1024 / 1024) + "MB");
-                            } catch (Exception e) {
-                                LogUtil.error(getClassName(), e, "Failed to process PDF: " + file.getName());
-                            }
-                        // --- PDF PROCESSING END ---
-
-                        filePaths.add(value);
-                        resultedValue.add(file.getName());
-                    } else {
-                        if (remove != null && !value.isEmpty()) {
-                            remove.remove(value);
-                        }
+                    // ✅ File null = sudah tersimpan sebelumnya, skip
+                    if (file == null) {
                         resultedValue.add(value);
+                        continue;
                     }
+
+                    // Kompres jika PDF dan bukan none
+                    if (file.getName().toLowerCase().endsWith(".pdf")
+                            && compressionLevel != null
+                            && !"none".equals(compressionLevel)) {
+                        try {
+                            LogUtil.info(getClassName(), "Compressing: " + file.getName());
+                            compressPdf(file, compressionLevel, enableWatermark, watermarkText);
+                            LogUtil.info(getClassName(), "Done. Size: " + file.length() / 1024 + " KB");
+                        } catch (Exception e) {
+                            LogUtil.error(getClassName(), e, "Compression failed: " + file.getName());
+                        }
+                    }
+
+                    filePaths.add(value);
+                    resultedValue.add(file.getName());
+                    LogUtil.info(getClassName(), "added to filePaths: [" + value + "] as [" + file.getName() + "]");
+                    LogUtil.info(getClassName(), filePaths.toString());
+
+                    if (remove != null) remove.remove(value);
                 }
 
                 if (!filePaths.isEmpty()) {
                     result.putTempFilePath(id, filePaths.toArray(new String[]{}));
                 }
-
                 if (remove != null) {
                     result.putDeleteFilePath(id, remove.toArray(new String[]{}));
                 }
 
-                // formulate values
-                String delimitedValue = FormUtil.generateElementPropertyValues(resultedValue.toArray(new String[]{}));
+                String delimitedValue = FormUtil.generateElementPropertyValues(
+                        resultedValue.toArray(new String[]{}));
                 String paramName = FormUtil.getElementParameterName(this);
                 formData.addRequestParameterValues(paramName, resultedValue.toArray(new String[]{}));
-
-                // set value into Properties and FormRowSet object
                 result.setProperty(id, delimitedValue);
+
                 rowSet = new FormRowSet();
                 rowSet.add(result);
-
-                String filePathPostfix = "_path";
-                formData.addRequestParameterValues(id + filePathPostfix, new String[]{});
+                formData.addRequestParameterValues(id + "_path", new String[]{});
             }
         }
-
         return rowSet;
     }
 
