@@ -121,6 +121,35 @@
                        style="display:none;"/>
             </div>
         </#if>
+        <#if tempFilePaths?? || filePaths??>
+                <style>
+                    ul.form-fileupload-value li{display:block;}
+                </style>
+                <ul class="form-fileupload-value">
+                    <#if tempFilePaths??>
+                        <#list tempFilePaths?keys as key>
+                            <li>
+                                ${tempFilePaths[key]!?html}
+                                <input type="hidden" name="${elementParamName!}_path" value="${key!?html}"/>
+                                <#if element.properties.readonly! != 'true'>
+                                    <input type="checkbox" name="${elementParamName!}_remove" value="${key!?html}" /> <span style="font-size:smaller">@@form.fileupload.remove@@</span>
+                                </#if>
+                            </li>
+                        </#list>
+                    </#if>
+                    <#if filePaths??>
+                        <#list filePaths?keys as key>
+                            <li>
+                                <a href="${request.contextPath}${key!?html}" target="_blank" >${filePaths[key]!?html}</a>
+                                <input type="hidden" name="${elementParamName!}_path" value="${filePaths[key]!?html}"/>
+                                <#if element.properties.readonly! != 'true'>
+                                    <input type="checkbox" name="${elementParamName!}_remove" value="${filePaths[key]!?html}" /> <span style="font-size:smaller">@@form.fileupload.remove@@</span>
+                                </#if>
+                            </li>
+                        </#list>
+                    </#if>
+                </ul>
+            </#if>
 
         <!-- Full Page Preview Overlay -->
         <div id="full-page-preview-${elementParamName!}">
@@ -243,7 +272,7 @@
     // ── Upload via XHR ────────────────────────────────────────────
     function uploadFile(file) {
         const formData = new FormData();
-        formData.append(paramName, file);
+        formData.append('pdfFile', file);
 
         const csrfToken = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenValue : '';
         const csrfName  = (typeof ConnectionManager !== 'undefined') ? ConnectionManager.tokenName  : '';

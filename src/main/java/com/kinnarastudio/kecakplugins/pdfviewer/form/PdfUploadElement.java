@@ -32,8 +32,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.kecak.apps.form.service.FormDataUtil;
+import org.springframework.context.ApplicationContext;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.multipart.MultipartResolver;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -489,80 +492,112 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
 //        return url;
 //    }
 
-    public void webService(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        String nonce = request.getParameter("_nonce");
-        String paramName = request.getParameter("_paramName");
-        String appId = request.getParameter("_appId");
-        String appVersion = request.getParameter("_appVersion");
-        String filePath = request.getParameter("_path");
-        String fileType = request.getParameter("_ft");
+    @Override
+    public void webService(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
 
-        if (SecurityUtil.verifyNonce(nonce, new String[]{"FileUpload", appId, appVersion, paramName, fileType})) {
-            if ("POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return;
+        }
 
-                try {
-                    JSONObject obj = new JSONObject();
-                    try {
-                        // handle multipart files
-                        String validatedParamName = SecurityUtil.validateStringInput(paramName);
-                        MultipartFile file = FileStore.getFile(validatedParamName);
-                        if (file != null && file.getOriginalFilename() != null && !file.getOriginalFilename().isEmpty()) {
-                            String ext = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf(".")).toLowerCase();
-                            if (fileType != null && (fileType.isEmpty() || fileType.contains(ext+";") || fileType.endsWith(ext))) {
-                                String path = FileManager.storeFile(file);
-                                obj.put("path", path);
-                                obj.put("filename", file.getOriginalFilename());
-                                obj.put("newFilename", path.substring(path.lastIndexOf(File.separator) + 1));
-                            } else {
-                                obj.put("error", ResourceBundleUtil.getMessage("form.fileupload.fileType.msg.invalidFileType"));
-                            }
-                        }
+        try {
+            MultipartFile mFile = resolveMultipartFile(request);
 
-                        Collection<String> errorList = FileStore.getFileErrorList();
-                        if (errorList != null && !errorList.isEmpty() && errorList.contains(paramName)) {
-                            obj.put("error", ResourceBundleUtil.getMessage("general.error.fileSizeTooLarge", new Object[]{FileStore.getFileSizeLimit()}));
-                        }
-                    } catch (Exception e) {
-                        obj.put("error", e.getLocalizedMessage());
-                    } finally {
-                        FileStore.clear();
-                    }
-                    obj.write(response.getWriter());
-                } catch (Exception ex) {}
-            } else if (filePath != null && !filePath.isEmpty()) {
-                String normalizedFilePath = SecurityUtil.normalizedFileName(filePath);
+            if (mFile == null || mFile.isEmpty()) {
+                LogUtil.warn(getClassName(), "File 'pdfFile' tidak ditemukan di semua strategy");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "File 'pdfFile' not found.");
+                return;
+            }
 
-                File file = FileManager.getFileByPath(normalizedFilePath);
-                if (file != null) {
-                    ServletOutputStream stream = response.getOutputStream();
-                    DataInputStream in = new DataInputStream(new FileInputStream(file));
-                    byte[] bbuf = new byte[65536];
+            LogUtil.info(getClassName(), "File ditemukan: " + mFile.getSize() + " bytes");
+            handleProcessing(mFile.getBytes(), response, request);
 
-                    try {
-                        String contentType = request.getSession().getServletContext().getMimeType(file.getName());
-                        if (contentType != null) {
-                            response.setContentType(contentType);
-                        }
+        } catch (Exception e) {
+            LogUtil.error(getClassName(), e, e.getMessage());
+            if (!response.isCommitted()) {
+                response.sendError(500, "Error: " + e.getMessage());
+            }
+        }
+    }
 
-                        // send output
-                        int length = 0;
-                        while ((in != null) && ((length = in.read(bbuf)) != -1)) {
-                            stream.write(bbuf, 0, length);
-                        }
-                    } catch (Exception e) {
+    /**
+     * Telusuri semua wrapper layer untuk menemukan MultipartFile
+     */
+    private MultipartFile resolveMultipartFile(HttpServletRequest request) {
+        HttpServletRequest current = request;
 
-                    } finally {
-                        in.close();
-                        stream.flush();
-                        stream.close();
-                    }
-                } else {
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND);
-                    return;
+        // Loop: unwrap semua layer wrapper
+        while (current != null) {
+            LogUtil.info(getClassName(), "Checking request type: " + current.getClass().getName());
+
+            // Cek apakah layer ini adalah MultipartHttpServletRequest
+            if (current instanceof MultipartHttpServletRequest) {
+                MultipartHttpServletRequest multipart = (MultipartHttpServletRequest) current;
+                MultipartFile mFile = multipart.getFile("pdfFile");
+                if (mFile != null && !mFile.isEmpty()) {
+                    LogUtil.info(getClassName(), "Found via wrapper: " + current.getClass().getName());
+                    return mFile;
                 }
             }
-        } else {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, ResourceBundleUtil.getMessage("general.error.error403"));
+
+            // Unwrap satu layer (HttpServletRequestWrapper → getRequest())
+            if (current instanceof javax.servlet.http.HttpServletRequestWrapper) {
+                javax.servlet.ServletRequest inner =
+                        ((javax.servlet.http.HttpServletRequestWrapper) current).getRequest();
+                if (inner instanceof HttpServletRequest) {
+                    current = (HttpServletRequest) inner;
+                } else {
+                    break;
+                }
+            } else {
+                break; // Sudah sampai layer paling dalam
+            }
+        }
+
+        // Fallback: coba Spring ApplicationContext resolver
+        try {
+            ApplicationContext ac = AppUtil.getApplicationContext();
+            MultipartResolver resolver = (MultipartResolver) ac.getBean("multipartResolver");
+            if (resolver.isMultipart(request)) {
+                MultipartHttpServletRequest multipart = resolver.resolveMultipart(request);
+                MultipartFile mFile = multipart.getFile("pdfFile");
+                LogUtil.info(getClassName(), "Found via ApplicationContext resolver");
+                return mFile;
+            }
+        } catch (Exception e) {
+            LogUtil.warn(getClassName(), "Resolver fallback failed: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    private void handleProcessing(byte[] pdfBytes, HttpServletResponse response, HttpServletRequest request) throws Exception {
+        String level = request.getParameter("level");
+        LogUtil.info(getClassName(), "compressionLevel dari properties: [" + level + "]");
+
+        if (level == null || level.isEmpty()) level = "medium";
+        LogUtil.info(getClassName(), "level yang dipakai: [" + level + "]");
+
+        boolean enableWatermark = "true".equalsIgnoreCase(request.getParameter("watermark"));
+        String watermarkText = request.getParameter("watermarkText");
+        if (watermarkText == null || watermarkText.isEmpty()) watermarkText = "PREVIEW";
+
+        byte[] compressed = compressPdfToBytes(
+                new ByteArrayInputStream(pdfBytes),
+                level,
+                enableWatermark,
+                watermarkText
+        );
+
+        response.reset();
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "inline; filename=\"preview.pdf\"");
+        response.setContentLength(compressed.length);
+
+        try (OutputStream os = response.getOutputStream()) {
+            os.write(compressed);
+            os.flush();
         }
     }
 
