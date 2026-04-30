@@ -1,16 +1,6 @@
 package com.kinnarastudio.kecakplugins.pdfviewer.form;
 
 import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
-import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
-import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
@@ -18,10 +8,8 @@ import org.joget.apps.form.service.FileUtil;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.apps.userview.model.Permission;
 import org.joget.apps.userview.model.PwaOfflineResources;
-import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.*;
 import org.joget.directory.model.User;
-import org.joget.directory.model.service.ExtDirectoryManager;
 import org.joget.plugin.base.PluginManager;
 import org.joget.plugin.base.PluginWebSupport;
 import org.joget.workflow.model.WorkflowAssignment;
@@ -34,18 +22,14 @@ import org.json.JSONObject;
 import org.kecak.apps.form.service.FormDataUtil;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.multipart.MultipartFile;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.MultipartResolver;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.*;
@@ -81,7 +65,7 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
 
     @Override
     public String getLabel() {
-        return "PDF Upload Resize";
+        return "PDF Resize Upload";
     }
 
     @Override
@@ -101,7 +85,6 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         if (storedValue != null) {
             values = storedValue.split(";");
         }
-
 
         Map<String, String> tempFilePaths = new LinkedHashMap<String, String>();
         Map<String, String> filePaths = new LinkedHashMap<String, String>();
@@ -187,12 +170,11 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         return "<img src='${request.contextPath}/plugin/${className}/images/pdf-logo.png' width='320' height='320' />";
     }
 
-
-
     @Override
     public String getPropertyOptions() {
         return AppUtil.readPluginResource(getClassName(), "/properties/PdfUploadElement.json", null, true, null).replaceAll("\"", "'");
     }
+
     public boolean getHtmlEmbed(WorkflowAssignment assignment) {
         return "true".equalsIgnoreCase(AppUtil.processHashVariable(getPropertyString("htmlEmbed"), assignment, null, null));
     }
@@ -201,8 +183,6 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
     public String getPdfUrl(WorkflowAssignment workflowAssignment) {
         return AppUtil.processHashVariable(getPropertyString("pdfUrl"), workflowAssignment, null, null);
     }
-
-
 
     protected String getElementValue(FormData formData) {
         WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
@@ -320,204 +300,120 @@ public class PdfUploadElement extends Element implements FileDownloadSecurity, F
         return rowSet;
     }
 
-    /**
-     * Compresses images within a PDF to reduce total file size.
-     * Targets images > 500px and reduces them by 50% with 60% JPEG quality.
-     */
-//    private void compressPdf(File file, String level) throws IOException {
-//        float scale;
-//        float quality;
-//
-//        // Define settings based on user selection
-//        switch (level) {
-//            case "low":
-//                scale = 0.8f;   // 80% of original size
-//                quality = 0.8f; // 80% JPEG quality
-//                break;
-//            case "high":
-//                scale = 0.4f;   // 40% of original size
-//                quality = 0.4f; // 40% JPEG quality
-//                break;
-//            case "medium":
-//            default:
-//                scale = 0.6f;   // 60% of original size
-//                quality = 0.6f; // 60% JPEG quality
-//                break;
-//        }
-//
-//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-//            for (PDPage page : document.getPages()) {
-//                PDResources resources = page.getResources();
-//                if (resources == null) continue;
-//
-//                for (COSName name : resources.getXObjectNames()) {
-//                    if (resources.isImageXObject(name)) {
-//                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-//                        BufferedImage rawImage = image.getImage();
-//                        if (rawImage == null) continue;
-//
-//                        // Apply the scale factor
-//                        int newWidth = Math.round(rawImage.getWidth() * scale);
-//                        int newHeight = Math.round(rawImage.getHeight() * scale);
-//
-//                        // Skip if the image is already smaller than the target
-//                        if (newWidth < 100) continue;
-//
-//                        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
-//                        Graphics2D g = resizedImage.createGraphics();
-//                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-//                        g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
-//                        g.dispose();
-//
-//                        // Apply the JPEG quality factor
-//                        PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, quality);
-//                        resources.put(name, compressedXObject);
-//                    }
-//                }
-//            }
-//            document.save(file);
-//        }
-//    }
-
-//    private void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
-//        float scale = 0.6f;
-//        float quality = 0.6f;
-//
-//        // Map settings
-//        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
-//        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
-//
-//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-//            for (PDPage page : document.getPages()) {
-//                PDResources resources = page.getResources();
-//
-//                // 1. Image Compression
-//                if (!"none".equals(level) && resources != null) {
-//                    for (COSName name : resources.getXObjectNames()) {
-//                        if (resources.isImageXObject(name)) {
-//                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-//                            BufferedImage rawImage = image.getImage();
-//                            if (rawImage != null && (rawImage.getWidth() > 500)) {
-//                                int nW = Math.round(rawImage.getWidth() * scale);
-//                                int nH = Math.round(rawImage.getHeight() * scale);
-//
-//                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
-//                                Graphics2D g = resized.createGraphics();
-//                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-//                                g.drawImage(rawImage, 0, 0, nW, nH, null);
-//                                g.dispose();
-//
-//                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // 2. Watermarking
-//                if (watermark && text != null && !text.isEmpty()) {
-//                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
-//                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
-//                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
-//                        cs.setGraphicsStateParameters(gs);
-//                        cs.beginText();
-//                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
-//                        cs.setNonStrokingColor(Color.GRAY);
-//
-//                        float w = page.getMediaBox().getWidth();
-//                        float h = page.getMediaBox().getHeight();
-//                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
-//                        cs.showText(text);
-//                        cs.endText();
-//                    }
-//                }
-//            }
-//            document.save(file);
-//        }
-//    }
-
-//    private void compressPdfImages(File file) throws IOException {
-//        // Use temp file for buffering to save JVM Heap Space
-//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-//            for (PDPage page : document.getPages()) {
-//                PDResources resources = page.getResources();
-//                if (resources == null) continue;
-//
-//                for (COSName name : resources.getXObjectNames()) {
-//                    if (resources.isImageXObject(name)) {
-//                        PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-//
-//                        BufferedImage rawImage = image.getImage();
-//                        if (rawImage == null) continue;
-//
-//                        // Only downsample if the image is reasonably large (e.g., > 500px)
-//                        if (rawImage.getWidth() > 500 || rawImage.getHeight() > 500) {
-//                            double scale = 0.5;
-//                            int newWidth = (int) (rawImage.getWidth() * scale);
-//                            int newHeight = (int) (rawImage.getHeight() * scale);
-//
-//                            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
-//                            Graphics2D g = resizedImage.createGraphics();
-//
-//                            // Quality settings for the resize
-//                            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-//                            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-//
-//                            g.drawImage(rawImage, 0, 0, newWidth, newHeight, null);
-//                            g.dispose();
-//
-//                            // 0.6f quality offers a great balance between size and legibility
-//                            PDImageXObject compressedXObject = JPEGFactory.createFromImage(document, resizedImage, 0.6f);
-//                            resources.put(name, compressedXObject);
-//                        }
-//                    }
-//                }
-//            }
-//            // Overwrite the temp file with compressed version
-//            document.save(file);
-//        }
-//    }
-
-//    public String getServiceUrl() {
-//        String url = WorkflowUtil.getHttpServletRequest().getContextPath()+ "/web/json/plugin/org.joget.apps.form.lib.FileUpload/service";
-//        AppDefinition appDef = AppUtil.getCurrentAppDefinition();
-//
-//        //create nonce
-//        String paramName = FormUtil.getElementParameterName(this);
-//        String fileType = getPropertyString("fileType");
-//        String nonce = SecurityUtil.generateNonce(new String[]{"FileUpload", appDef.getAppId(), appDef.getVersion().toString(), paramName, fileType}, 1);
-//
-//        try {
-//            url = url + "?_nonce="+URLEncoder.encode(nonce, "UTF-8")+"&_paramName="+URLEncoder.encode(paramName, "UTF-8")+"&_appId="+URLEncoder.encode(appDef.getAppId(), "UTF-8")+"&_appVersion="+URLEncoder.encode(appDef.getVersion().toString(), "UTF-8")+"&_ft="+URLEncoder.encode(fileType, "UTF-8");
-//        } catch (Exception e) {}
-//        return url;
-//    }
-
     @Override
-    public void webService(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    public void webService(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return;
+        String filePath = request.getParameter("_path");
+
+        // HANDLE FILE UPLOAD (POST)
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            try {
+                handlePostUpload(request, response);
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
         }
+        // 4. HANDLE PREVIEW REQUEST (GET with _path)
+        else if (filePath != null && !filePath.isEmpty()) {
+            handleGetPreview(request, response, filePath);
+        }
+    }
+
+    /**
+     * Handles the AJAX File Upload, Processes PDF, and returns JSON.
+     */
+    private void handlePostUpload(HttpServletRequest request, HttpServletResponse response) throws IOException, JSONException {
+        response.setContentType("application/json");
+        JSONObject jsonResponse = new JSONObject();
 
         try {
-            MultipartFile mFile = resolveMultipartFile(request);
+            // Use Joget's AppUtil to catch the multipart request
+            MultipartFile file = FileStore.getFile("pdfFile");
 
-            if (mFile == null || mFile.isEmpty()) {
-                LogUtil.warn(getClassName(), "File 'pdfFile' tidak ditemukan di semua strategy");
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "File 'pdfFile' not found.");
-                return;
+            if (file != null && !file.isEmpty()) {
+                // --- STEP A: PDF PROCESSING (Compression/Watermark) ---
+                 byte[] processedBytes = compressPdfToBytes(file.getInputStream(), "medium", true, "PREVIEW");
+
+                // --- STEP B: STORE FILE ---
+                String path = storeByteArray(processedBytes, "compressed_" + file.getOriginalFilename());
+
+                // --- STEP C: RETURN JSON ---
+                jsonResponse.put("path", path);
+                jsonResponse.put("filename", file.getOriginalFilename());
+                jsonResponse.put("status", "success");
+
+                LogUtil.info(getClassName(), "File processed and stored at: " + path);
+            } else {
+                jsonResponse.put("error", "No file found in parameter: pdfFile");
             }
-
-            LogUtil.info(getClassName(), "File ditemukan: " + mFile.getSize() + " bytes");
-            handleProcessing(mFile.getBytes(), response, request);
-
         } catch (Exception e) {
-            LogUtil.error(getClassName(), e, e.getMessage());
-            if (!response.isCommitted()) {
-                response.sendError(500, "Error: " + e.getMessage());
+            LogUtil.error(getClassName(), e, "Error during PDF upload");
+            jsonResponse.put("error", e.getMessage());
+        } finally {
+            FileStore.clear(); // Clean up the thread-local file store
+        }
+
+        response.getWriter().write(jsonResponse.toString());
+        response.getWriter().flush();
+    }
+
+    /**
+     * Store the byte array PDF data to the server.
+     */
+    private String storeByteArray(byte[] bytes, String fileName) throws IOException {
+        String baseDir = FileManager.getBaseDirectory();
+        String uuid = org.joget.commons.util.UuidGenerator.getInstance().getUuid();
+        File folder = new File(baseDir + File.separator + uuid);
+
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+
+        File targetFile = new File(folder, fileName);
+
+        try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+            fos.write(bytes);
+            fos.flush();
+        }
+
+        return uuid + File.separator + fileName;
+    }
+
+    /**
+     * Streams the binary PDF data to the iframe for preview.
+     */
+    private void handleGetPreview(HttpServletRequest request, HttpServletResponse response, String filePath) throws IOException {
+        // Prevent directory traversal attacks
+        String normalizedPath = SecurityUtil.normalizedFileName(filePath);
+        File file = FileManager.getFileByPath(normalizedPath);
+
+        String appId = request.getParameter("_appId");
+        String appVersion = request.getParameter("_appVersion");
+        String formDefId = request.getParameter("_formId"); // ID Form (misal: "form_data_user")
+        String recordId = request.getParameter("_id");     // ID Record / Primary Key
+
+        if (file == null || !file.exists()) {
+            if (appId != null && formDefId != null && recordId != null && !recordId.isEmpty()) {
+                file = FileUtil.getFile(normalizedPath, formDefId, recordId);
             }
+        }
+
+        if (file != null && file.exists()) {
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "inline; filename=\"" + file.getName() + "\"");
+            response.setContentLength((int) file.length());
+
+            try (FileInputStream in = new FileInputStream(file);
+                 OutputStream out = response.getOutputStream()) {
+                byte[] buffer = new byte[10240];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+                out.flush();
+            }
+        } else {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Preview file not found.");
         }
     }
 
