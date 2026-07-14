@@ -341,7 +341,7 @@ public class PdfMerge extends FileUpload {
     @Override
     public String getVersion() {
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
-        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/message/BuildNumber");
+        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
         return resourceBundle.getString("buildNumber");
     }
 
