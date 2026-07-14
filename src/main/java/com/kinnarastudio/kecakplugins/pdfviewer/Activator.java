@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import com.kinnarastudio.kecakplugins.pdfviewer.app.PdfViewerWebService;
+import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfMerge;
 import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfUploadElement;
 import com.kinnarastudio.kecakplugins.pdfviewer.form.PdfViewerElement;
+import com.kinnarastudio.kecakplugins.pdfviewer.tool.PdfMergeTool;
 import com.kinnarastudio.kecakplugins.pdfviewer.userview.PdfUploadMenu;
 import com.kinnarastudio.kecakplugins.pdfviewer.userview.PdfViewerMenu;
 import org.osgi.framework.BundleActivator;
@@ -25,6 +27,8 @@ public class Activator implements BundleActivator {
         registrationList.add(context.registerService(PdfViewerMenu.class.getName(), new PdfViewerMenu(), null));
         registrationList.add(context.registerService(PdfUploadMenu.class.getName(), new PdfUploadMenu(), null));
         registrationList.add(context.registerService(PdfViewerWebService.class.getName(), new PdfViewerWebService(), null));
+        registrationList.add(context.registerService(PdfMerge.class.getName(), new PdfMerge(), null));
+        registrationList.add(context.registerService(PdfMergeTool.class.getName(), new PdfMergeTool(), null));
     }
 
     public void stop(BundleContext context) {

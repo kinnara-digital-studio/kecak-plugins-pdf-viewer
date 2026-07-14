@@ -13,6 +13,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.io.MemoryUsageSetting;
+import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -23,6 +24,8 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.util.Matrix;
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.model.FormData;
+import org.joget.apps.form.model.FormRow;
 import org.joget.commons.util.LogUtil;
 //import org.apache.commons.io.IOUtils;
 import org.joget.workflow.model.WorkflowAssignment;
@@ -37,6 +40,7 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 public interface PdfUtils {
@@ -309,59 +313,72 @@ public interface PdfUtils {
         }
     }
 
-//    default void compressPdf(File file, String level, boolean watermark, String text) throws IOException {
-//        float scale = 0.6f;
-//        float quality = 0.6f;
-//
-//        // Map settings
-//        if ("low".equals(level)) { scale = 0.8f; quality = 0.8f; }
-//        else if ("high".equals(level)) { scale = 0.4f; quality = 0.4f; }
-//
-//        try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-//            for (PDPage page : document.getPages()) {
-//                PDResources resources = page.getResources();
-//
-//                // 1. Image Compression
-//                if (!"none".equals(level) && resources != null) {
-//                    for (COSName name : resources.getXObjectNames()) {
-//                        if (resources.isImageXObject(name)) {
-//                            PDImageXObject image = (PDImageXObject) resources.getXObject(name);
-//                            BufferedImage rawImage = image.getImage();
-//                            if (rawImage != null && (rawImage.getWidth() > 500)) {
-//                                int nW = Math.round(rawImage.getWidth() * scale);
-//                                int nH = Math.round(rawImage.getHeight() * scale);
-//
-//                                BufferedImage resized = new BufferedImage(nW, nH, BufferedImage.TYPE_INT_ARGB);
-//                                Graphics2D g = resized.createGraphics();
-//                                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-//                                g.drawImage(rawImage, 0, 0, nW, nH, null);
-//                                g.dispose();
-//
-//                                resources.put(name, JPEGFactory.createFromImage(document, resized, quality));
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // 2. Watermarking
-//                if (watermark && text != null && !text.isEmpty()) {
-//                    try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
-//                        PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
-//                        gs.setNonStrokingAlphaConstant(0.3f); // 30% Opacity
-//                        cs.setGraphicsStateParameters(gs);
-//                        cs.beginText();
-//                        cs.setFont(PDType1Font.HELVETICA_BOLD, 50);
-//                        cs.setNonStrokingColor(Color.GRAY);
-//
-//                        float w = page.getMediaBox().getWidth();
-//                        float h = page.getMediaBox().getHeight();
-//                        cs.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(45), w/5, h/5));
-//                        cs.showText(text);
-//                        cs.endText();
-//                    }
-//                }
-//            }
-//            document.save(file);
-//        }
-//    }
+    /**
+     * Merge PDF
+     */
+    default void processMergePdf(List<File> physicalFiles, File permDirBase, String tableName, String fieldId, String recordId, String formId, String paramName, FormData formData, FormRow row){
+        try {
+            PDFMergerUtility pdfMerger = new PDFMergerUtility();
+            for (File f : physicalFiles) {
+                pdfMerger.addSource(f);
+            }
+
+            String mergedFileName = "merged_" + System.currentTimeMillis() + ".pdf";
+
+            // Construct the targeted folder layouts based on absolute resolution paths
+            File destTableRoot = new File(permDirBase, tableName + File.separator + recordId);
+            File destFormRoot = new File(permDirBase, formId + File.separator + recordId);
+            File destTableUiSub = new File(destTableRoot, fieldId);
+            File destFormUiSub = new File(destFormRoot, fieldId);
+
+            // Ensure all path branches are initialized on the drive
+            if (!destTableRoot.exists()) destTableRoot.mkdirs();
+            if (!destFormRoot.exists()) destFormRoot.mkdirs();
+            if (!destTableUiSub.exists()) destTableUiSub.mkdirs();
+            if (!destFormUiSub.exists()) destFormUiSub.mkdirs();
+
+            File fileTableRoot = new File(destTableRoot, mergedFileName);
+            File fileFormRoot = new File(destFormRoot, mergedFileName);
+            File fileTableUiSub = new File(destTableUiSub, mergedFileName);
+            File fileFormUiSub = new File(destFormUiSub, mergedFileName);
+
+            // Execute the PDF merge directly to the structural Table Record Root destination
+            pdfMerger.setDestinationFileName(fileTableRoot.getAbsolutePath());
+            pdfMerger.mergeDocuments(org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly());
+
+            // Broadcast zero-copy duplications to all alternative path configurations
+            copyFileOptimized(fileTableRoot, fileFormRoot);
+            copyFileOptimized(fileTableRoot, fileTableUiSub);
+            copyFileOptimized(fileTableRoot, fileFormUiSub);
+
+            // Assign update variables inside row entries natively
+            row.setProperty(fieldId, mergedFileName);
+            row.setProperty(paramName, mergedFileName);
+            String[] parameterPayload = new String[]{mergedFileName};
+            formData.addRequestParameterValues(paramName, parameterPayload);
+            formData.addRequestParameterValues(fieldId, parameterPayload);
+        } catch (Exception e) {
+//            LogUtil.error(getClassName(), e, "Error during PDF merging operations: " + e.getMessage());
+            formData.addFileError(paramName, "PDF Merge failed: " + e.getMessage());
+         }
+    }
+
+    default void copyFileOptimized(File source, File dest) throws IOException {
+        java.io.FileInputStream fis = null;
+        java.io.FileOutputStream fos = null;
+        java.nio.channels.FileChannel sourceChannel = null;
+        java.nio.channels.FileChannel destChannel = null;
+        try {
+            fis = new java.io.FileInputStream(source);
+            fos = new java.io.FileOutputStream(dest);
+            sourceChannel = fis.getChannel();
+            destChannel = fos.getChannel();
+            destChannel.transferFrom(sourceChannel, 0, sourceChannel.size());
+        } finally {
+            if (sourceChannel != null) try { sourceChannel.close(); } catch(Exception e){}
+            if (destChannel != null) try { destChannel.close(); } catch(Exception e){}
+            if (fis != null) try { fis.close(); } catch(Exception e){}
+            if (fos != null) try { fos.close(); } catch(Exception e){}
+        }
+    }
 }
