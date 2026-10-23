@@ -1,9 +1,7 @@
 package com.kinnarastudio.kecakplugins.pdfviewer.form;
 
-import com.kinnarastudio.kecakplugins.pdfviewer.util.PdfUtils;
 import com.kinnarastudio.commons.Try;
 import com.kinnarastudio.commons.jsonstream.JSONStream;
-
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.lib.FileUpload;
@@ -31,7 +29,7 @@ import java.util.*;
 /**
  * Upload and sign file
  */
-public class PdfMerge extends FileUpload {
+public class PdfMergeElement extends FileUpload {
 
     public final static String PATH_FORMUPLOADS = "wflow/app_formuploads/";
 
@@ -204,12 +202,14 @@ public class PdfMerge extends FileUpload {
         try {
             File f = FileManager.getFileByPath(fileRef);
             if (f != null && f.exists() && f.isFile()) return f;
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         try {
             File f = FileManager.getFileByPath(cleanFileName);
             if (f != null && f.exists() && f.isFile()) return f;
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         // Check primary Table Folder layout routes
         if (recordFolder != null) {
@@ -262,7 +262,8 @@ public class PdfMerge extends FileUpload {
                 }
                 return matches.get(0);
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         return null;
     }
@@ -300,21 +301,13 @@ public class PdfMerge extends FileUpload {
     }
 
     private void copyFileOptimized(File source, File dest) throws IOException {
-        java.io.FileInputStream fis = null;
-        java.io.FileOutputStream fos = null;
-        java.nio.channels.FileChannel sourceChannel = null;
-        java.nio.channels.FileChannel destChannel = null;
-        try {
-            fis = new java.io.FileInputStream(source);
-            fos = new java.io.FileOutputStream(dest);
-            sourceChannel = fis.getChannel();
-            destChannel = fos.getChannel();
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(source);
+             java.io.FileOutputStream fos = new java.io.FileOutputStream(dest);
+             java.nio.channels.FileChannel sourceChannel = fis.getChannel();
+             java.nio.channels.FileChannel destChannel = fos.getChannel()) {
+
             destChannel.transferFrom(sourceChannel, 0, sourceChannel.size());
-        } finally {
-            if (sourceChannel != null) try { sourceChannel.close(); } catch(Exception e){}
-            if (destChannel != null) try { destChannel.close(); } catch(Exception e){}
-            if (fis != null) try { fis.close(); } catch(Exception e){}
-            if (fos != null) try { fos.close(); } catch(Exception e){}
+
         }
     }
 
