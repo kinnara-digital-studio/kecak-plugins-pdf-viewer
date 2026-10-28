@@ -139,9 +139,6 @@ public class PdfMergerWebService extends DefaultApplicationPlugin implements Plu
             return;
         }
 
-        FormData formData = new FormData();
-        formData.setPrimaryKeyValue(recordId);
-
         WorkflowAssignment assignment = new WorkflowAssignment();
         assignment.setProcessId(recordId);
 
@@ -150,7 +147,15 @@ public class PdfMergerWebService extends DefaultApplicationPlugin implements Plu
         if (formJson != null) {
             formJson = AppUtil.processHashVariable(formJson, assignment, StringUtil.TYPE_JSON, null, appDef);
         }
-        Form form = (Form) formService.loadFormFromJson(formJson, formData);
+
+        Form form = null;
+        try {
+            if (formJson != null) {
+                form = (Form) formService.createElementFromJson(formJson, false);
+            }
+        } catch (Exception e) {
+            LogUtil.warn(getClassName(), "Could not parse form elements from JSON: " + e.getMessage());
+        }
 
         String tableName = (form != null) ? form.getPropertyString(FormUtil.PROPERTY_TABLE_NAME) : "";
         if (tableName == null || tableName.trim().isEmpty()) {
