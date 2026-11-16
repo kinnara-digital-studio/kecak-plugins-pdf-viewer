@@ -1,6 +1,7 @@
 package com.kinnara.kecakplugins.pdfviewer;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -21,6 +22,7 @@ import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.model.FormRow;
 import org.joget.apps.form.model.FormRowSet;
+import org.joget.apps.form.model.Section;
 import org.joget.apps.form.service.FileUtil;
 import org.joget.apps.form.service.FormService;
 import org.joget.apps.form.service.FormUtil;
@@ -167,11 +169,41 @@ public class PdfMergerWebService extends DefaultApplicationPlugin implements Plu
             collectElements(form, elementList);
         }
 
+        FormData formData = new FormData();
+        formData.setPrimaryKeyValue(recordId);
+        formData.setProcessId(recordId);
+
+        if (form != null && form.getLoadBinder() != null) {
+            formData.setLoadBinderData(form.getLoadBinder(), rowSet);
+        }
+
+        if (row != null) {
+            for (String propName : row.stringPropertyNames()) {
+                String val = row.getProperty(propName);
+                if (val != null) {
+                    formData.addRequestParameterValues(propName, val.split(";"));
+                }
+            }
+        }
+
+        if (request != null && request.getParameterMap() != null) {
+            for (Map.Entry<String, String[]> entry : ((Map<String, String[]>) request.getParameterMap()).entrySet()) {
+                formData.addRequestParameterValues(entry.getKey(), entry.getValue());
+            }
+        }
+
         List<PdfSource> pdfSources = new ArrayList<>();
         Set<String> processedFieldIds = new HashSet<>();
 
         for (Element element : elementList) {
             String fieldId = element.getPropertyString(FormUtil.PROPERTY_ID);
+            if (fieldId != null && !fieldId.trim().isEmpty()) {
+                processedFieldIds.add(fieldId);
+            }
+
+            if (!isVisible(element, formData)) {
+                continue;
+            }
 
             // Check if element is PdfViewerElement or has pdfUrl property
             String rawPdfUrl = element.getPropertyString("pdfUrl");
@@ -183,15 +215,11 @@ public class PdfMergerWebService extends DefaultApplicationPlugin implements Plu
                         pdfSources.add(new PdfSource("PdfViewer-" + fieldId, pdfBytes));
                     }
                 }
-                if (fieldId != null && !fieldId.trim().isEmpty()) {
-                    processedFieldIds.add(fieldId);
-                }
                 continue;
             }
 
             // Check if element is a File Upload or form field containing uploaded PDF
             if (fieldId != null && !fieldId.trim().isEmpty()) {
-                processedFieldIds.add(fieldId);
                 String fieldValue = row.getProperty(fieldId);
                 if (fieldValue != null && !fieldValue.trim().isEmpty()) {
                     String[] fileNames = fieldValue.split(";");
@@ -503,5 +531,81 @@ public class PdfMergerWebService extends DefaultApplicationPlugin implements Plu
             }
             throw new IOException("Empty source for: " + name);
         }
+    }
+
+    /**
+     * Check if current element is hidden by the Section
+     *
+     * @param element
+     * @param formData
+     * @return
+     */
+    public boolean isVisible(Element element, FormData formData) {
+        if (element == null) return true;
+
+        if (Boolean.FALSE.equals(element.isAuthorize(formData))) return false;
+
+        if (element instanceof Section) {
+            Section section = (Section) element;
+            if (!checkSectionVisibility(section, formData)) {
+                return false;
+            }
+        }
+
+        if (element instanceof Form) {
+            return true;
+        }
+
+        return isVisible(element.getParent(), formData);
+    }
+
+    protected Boolean checkSectionVisibility(Section section, FormData formData) {
+        try {
+            java.lang.reflect.Method method = Section.class.getDeclaredMethod("isMatch", FormData.class);
+            method.setAccessible(true);
+            Object result = method.invoke(section, formData);
+            if (result instanceof Boolean && !((Boolean) result)) {
+                return false;
+            }
+        } catch (Exception ignored) {
+        }
+        return isMatch(formData, section);
+    }
+
+    protected Boolean isMatch(FormData formData, Section section) {
+        String visibilityControl = section.getPropertyString("visibilityControl");
+        String visibilityValue = section.getPropertyString("visibilityValue");
+        String isRegex = section.getPropertyString("regex");
+        if (visibilityControl != null && !visibilityControl.isEmpty() && visibilityValue != null && !visibilityValue.isEmpty()) {
+            Form rootForm = FormUtil.findRootForm(section);
+            Element controlElement = (rootForm != null) ? FormUtil.findElement(visibilityControl, rootForm, formData) : null;
+            String[] paramValue = null;
+            if (controlElement != null) {
+                paramValue = FormUtil.getElementPropertyValues(controlElement, formData);
+            }
+            if (paramValue == null || paramValue.length == 0) {
+                paramValue = formData.getRequestParameterValues(visibilityControl);
+            }
+
+            if (paramValue != null) {
+                for (String value : paramValue) {
+                    if (value == null) continue;
+                    if (isRegex != null && "true".equalsIgnoreCase(isRegex)) {
+                        try {
+                            if (value.matches(StringEscapeUtils.unescapeJavaScript(visibilityValue))) {
+                                return true;
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    } else if (value.equals(visibilityValue)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        return true;
     }
 }
