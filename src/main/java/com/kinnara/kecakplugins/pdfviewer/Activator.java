@@ -18,6 +18,7 @@ public class Activator implements BundleActivator {
         registrationList.add(context.registerService(PdfViewerMenu.class.getName(), new PdfViewerMenu(), null));
         registrationList.add(context.registerService(PdfViewerWebService.class.getName(), new PdfViewerWebService(), null));
         registrationList.add(context.registerService(PdfMergerWebService.class.getName(), new PdfMergerWebService(), null));
+        registrationList.add(context.registerService(MultiSourcePdfViewerElement.class.getName(), new MultiSourcePdfViewerElement(), null));
     }
 
     public void stop(BundleContext context) {
